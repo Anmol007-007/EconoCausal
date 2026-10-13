@@ -1,0 +1,42 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Data (ignore large synthetic data files)
+data/*.csv
+!data/.gitkeep
+!data/sample.csv
+
+# Frontend build & node_modules
+frontend/node_modules/
+frontend/build/
+frontend/.pnp
+frontend/.pnp.js
+
+# Internal Project Requirements & Design Docs
+PRD.md
+DOM.md
+AGENTS.md
+docs/PRD.md
+docs/DOM.md
+
+# Environment variables
+.env
+.env.local
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
