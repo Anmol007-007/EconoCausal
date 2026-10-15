@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import UploadView from './components/UploadView';
+import UpliftView from './components/UpliftView';
 import DiagnosticsView from './components/DiagnosticsView';
 import AllocationView from './components/AllocationView';
 
@@ -30,6 +31,12 @@ export default function App() {
             onClick={() => setActiveTab('upload')}
           >
             📁 Upload & Budget
+          </button>
+          <button
+            className={`nav-tab ${activeTab === 'uplift' ? 'active' : ''}`}
+            onClick={() => setActiveTab('uplift')}
+          >
+            📈 Uplift Analysis
           </button>
           <button
             className={`nav-tab ${activeTab === 'diagnostics' ? 'active' : ''}`}
@@ -79,6 +86,10 @@ export default function App() {
             isLoading={isLoading}
             setLoading={setIsLoading}
           />
+        )}
+
+        {activeTab === 'uplift' && (
+          <UpliftView />
         )}
 
         {activeTab === 'diagnostics' && (
