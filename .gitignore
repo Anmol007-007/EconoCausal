@@ -18,8 +18,10 @@ data/*.csv
 # Frontend build & node_modules
 frontend/node_modules/
 frontend/build/
+frontend/dist/
 frontend/.pnp
 frontend/.pnp.js
+*.zip
 
 # Internal Project Requirements & Design Docs
 PRD.md
@@ -40,3 +42,4 @@ Thumbs.db
 
 # Jupyter
 .ipynb_checkpoints/
+.aistudio/
