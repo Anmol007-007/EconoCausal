@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CustomerRecord, ScreenTab } from '../types.ts';
-import { INITIAL_CUSTOMERS } from '../data/mockData.ts';
-import { exportCustomersCSV } from '../utils/exportUtils.ts';
+import { INITIAL_CUSTOMERS } from '../mockData.ts';
+import { exportCustomersCSV } from '../exportUtils.ts';
 
 interface UploadPipelineViewProps {
   onNavigate: (tab: ScreenTab) => void;

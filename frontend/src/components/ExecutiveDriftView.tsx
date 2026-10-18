@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ScreenTab } from '../types.ts';
-import { DRIFT_METRICS_30D, DRIFT_METRICS_7D, MICROSERVICE_ENDPOINTS, REFUTER_SUITE } from '../data/mockData.ts';
-import { exportRefutationJSON } from '../utils/exportUtils.ts';
+import { DRIFT_METRICS_30D, DRIFT_METRICS_7D, MICROSERVICE_ENDPOINTS, REFUTER_SUITE } from '../mockData.ts';
+import { exportRefutationJSON } from '../exportUtils.ts';
 
 interface ExecutiveDriftViewProps {
   onNavigate: (tab: ScreenTab) => void;

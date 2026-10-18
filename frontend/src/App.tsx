@@ -6,11 +6,11 @@ import { Footer } from './components/Footer.tsx';
 import { ExportModal } from './components/ExportModal.tsx';
 import { ApiDocsModal } from './components/ApiDocsModal.tsx';
 import { PipelineRunnerModal } from './components/PipelineRunnerModal.tsx';
-import { UploadPipelineView } from './views/UploadPipelineView.tsx';
-import { CausalDiagnosticsView } from './views/CausalDiagnosticsView.tsx';
-import { UpliftQiniView } from './views/UpliftQiniView.tsx';
-import { BudgetAllocationView } from './views/BudgetAllocationView.tsx';
-import { ExecutiveDriftView } from './views/ExecutiveDriftView.tsx';
+import { UploadPipelineView } from './components/UploadPipelineView.tsx';
+import { CausalDiagnosticsView } from './components/CausalDiagnosticsView.tsx';
+import { UpliftQiniView } from './components/UpliftQiniView.tsx';
+import { BudgetAllocationView } from './components/BudgetAllocationView.tsx';
+import { ExecutiveDriftView } from './components/ExecutiveDriftView.tsx';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<ScreenTab>('upload-pipeline');

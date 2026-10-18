@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RefuterTest, ScreenTab } from '../types.ts';
-import { REFUTER_SUITE } from '../data/mockData.ts';
-import { exportRefutationJSON } from '../utils/exportUtils.ts';
+import { REFUTER_SUITE } from '../mockData.ts';
+import { exportRefutationJSON } from '../exportUtils.ts';
 
 interface CausalDiagnosticsViewProps {
   onNavigate: (tab: ScreenTab) => void;

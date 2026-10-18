@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { ScreenTab } from '../types.ts';
-import { DECILE_DATA } from '../data/mockData.ts';
-import { exportDecilesCSV } from '../utils/exportUtils.ts';
+import { DECILE_DATA } from '../mockData.ts';
+import { exportDecilesCSV } from '../exportUtils.ts';
 
 interface UpliftQiniViewProps {
   onNavigate: (tab: ScreenTab) => void;

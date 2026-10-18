@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MICROSERVICE_ENDPOINTS } from '../data/mockData.ts';
+import { MICROSERVICE_ENDPOINTS } from '../mockData.ts';
 
 interface ApiDocsModalProps {
   isOpen: boolean;

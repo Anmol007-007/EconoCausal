@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { exportAuditBundle, exportCustomersCSV, exportDecilesCSV, exportRefutationJSON } from '../utils/exportUtils.ts';
-import { DECILE_DATA, INITIAL_CUSTOMERS, REFUTER_SUITE } from '../data/mockData.ts';
+import { exportAuditBundle, exportCustomersCSV, exportDecilesCSV, exportRefutationJSON } from '../exportUtils.ts';
+import { DECILE_DATA, INITIAL_CUSTOMERS, REFUTER_SUITE } from '../mockData.ts';
 
 interface ExportModalProps {
   isOpen: boolean;
