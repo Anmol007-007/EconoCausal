@@ -49,17 +49,19 @@ _STATE: Dict[str, Any] = {
     "allocation_results": None,
     "drift_results": None,
     "refutation_results": None,
+    "diagnostics_cache": None,
+    "summary_cache": None,
 }
 
 def _get_active_df() -> pd.DataFrame:
     if _STATE["df"] is None:
-        _STATE["df"] = generate_data(n=2000, seed=42)
+        _STATE["df"] = generate_data(n=1000, seed=42)
     return _STATE["df"]
 
 class UpliftRequest(BaseModel):
     dataset_id: Optional[str] = "default_retail"
-    n_estimators: int = Field(default=40, ge=8, le=500)
-    cv: int = Field(default=3, ge=2, le=10)
+    n_estimators: int = Field(default=32, ge=8, le=500)
+    cv: int = Field(default=2, ge=2, le=10)
     subforest_size: int = Field(default=4, ge=1, le=10)
 
 class AllocateRequest(BaseModel):
@@ -82,7 +84,7 @@ def health_check() -> Dict[str, str]:
 async def upload_dataset(
     file: Optional[UploadFile] = File(None),
     seed: int = Form(42),
-    n_records: int = Form(2000),
+    n_records: int = Form(1000),
 ) -> Dict[str, Any]:
     if file is not None:
         content = await file.read()
@@ -97,6 +99,11 @@ async def upload_dataset(
     _STATE["df"] = df
     _STATE["dml_bundle"] = None
     _STATE["uplift_df"] = None
+    _STATE["allocation_results"] = None
+    _STATE["drift_results"] = None
+    _STATE["refutation_results"] = None
+    _STATE["diagnostics_cache"] = None
+    _STATE["summary_cache"] = None
 
     req_cols = ["past_spend", "recency_days", "loyalty_tier", "category_affinity", "discount", "purchase"]
     present = [c for c in req_cols if c in df.columns]
@@ -128,10 +135,12 @@ def run_uplift_modeling(payload: Optional[UpliftRequest] = None) -> Dict[str, An
         n_estimators=payload.n_estimators,
         subforest_size=payload.subforest_size,
         random_state=42,
+        n_jobs=-1,
     )
     _STATE["dml_bundle"] = bundle
     uplift_df = predict_uplift(bundle, df)
     _STATE["uplift_df"] = uplift_df
+    _STATE["summary_cache"] = None
     elapsed = round(time.time() - start_time, 2)
 
     u10 = uplift_df["uplift_10"].values
@@ -170,7 +179,7 @@ def run_budget_allocation(payload: Optional[AllocateRequest] = None) -> Dict[str
 
     df = _get_active_df()
     if _STATE["uplift_df"] is None:
-        run_uplift_modeling(UpliftRequest(n_estimators=32, cv=2))
+        run_uplift_modeling(UpliftRequest(n_estimators=16, cv=2))
 
     uplift_df = _STATE["uplift_df"]
     u10 = uplift_df["uplift_10"].values
@@ -185,6 +194,7 @@ def run_budget_allocation(payload: Optional[AllocateRequest] = None) -> Dict[str
         max_arm_20=payload.max_arm_20,
     )
     _STATE["allocation_results"] = res
+    _STATE["summary_cache"] = None
 
     alloc_df = res["allocated_df"]
     quadrant_counts = alloc_df["quadrant"].value_counts().to_dict()
@@ -206,8 +216,11 @@ def run_budget_allocation(payload: Optional[AllocateRequest] = None) -> Dict[str
 @app.get("/diagnostics")
 @app.get("/api/diagnostics")
 def get_causal_diagnostics() -> Dict[str, Any]:
+    if _STATE["diagnostics_cache"] is not None:
+        return _STATE["diagnostics_cache"]
+
     df = _get_active_df()
-    sample_df = df.head(400).copy()
+    sample_df = df.head(200).copy()
 
     model = build_dag(sample_df)
     estimand = identify_effect(model)
@@ -220,13 +233,15 @@ def get_causal_diagnostics() -> Dict[str, Any]:
     overlap = overlap_report(prop_df, sample_df["discount"])
     balance = balance_table(sample_df, treatment_col="discount", weights=weights)
 
-    return {
+    diagnostics = {
         "dag_dot": get_dag_dot(),
         "estimand_backdoor_variables": estimand.get_backdoor_variables(),
         "overlap_report": overlap,
         "balance_table": balance.to_dict(orient="records"),
         "refutations": refutations,
     }
+    _STATE["diagnostics_cache"] = diagnostics
+    return diagnostics
 
 @app.post("/drift")
 @app.post("/api/drift")
@@ -248,11 +263,15 @@ def check_drift(payload: Optional[DriftRequest] = None) -> Dict[str, Any]:
         psi_threshold=payload.psi_threshold,
     )
     _STATE["drift_results"] = report
+    _STATE["summary_cache"] = None
     return report
 
 @app.get("/summary")
 @app.get("/api/summary")
 def get_executive_summary() -> Dict[str, Any]:
+    if _STATE["summary_cache"] is not None:
+        return _STATE["summary_cache"]
+
     if _STATE["allocation_results"] is None:
         run_budget_allocation(AllocateRequest())
     if _STATE["drift_results"] is None:
@@ -265,4 +284,5 @@ def get_executive_summary() -> Dict[str, Any]:
         drift_results=_STATE["drift_results"],
         refutation_results=_STATE["refutation_results"],
     )
+    _STATE["summary_cache"] = summary
     return summary

@@ -25,17 +25,17 @@ def prepare_features(df: pd.DataFrame, tier_categories: Optional[List[str]]=None
     W = pd.concat([w_num, dummies_reset], axis=1)
     return (X, W, dummy_cols)
 
-def train_dml(df: pd.DataFrame, treatment_col: str='discount', outcome_col: str='purchase', cv: int=5, n_estimators: int=100, random_state: int=42, subforest_size: int=4) -> Dict[str, Any]:
+def train_dml(df: pd.DataFrame, treatment_col: str='discount', outcome_col: str='purchase', cv: int=5, n_estimators: int=100, random_state: int=42, subforest_size: int=4, n_jobs: int=-1) -> Dict[str, Any]:
     cols_to_check = [col for col in df.columns if col not in ('true_effect', 'customer_id')]
     df_clean = df[cols_to_check].copy()
     X, W, dummy_cols = prepare_features(df_clean)
     T = df_clean[treatment_col].values.astype(int)
     Y = df_clean[outcome_col].values.astype(float)
     if n_estimators % subforest_size != 0:
-        n_estimators = n_estimators // subforest_size * subforest_size
-    model_y = LGBMRegressor(n_estimators=50, learning_rate=0.05, max_depth=5, random_state=random_state, verbose=-1)
-    model_t = LGBMClassifier(n_estimators=50, learning_rate=0.05, max_depth=5, random_state=random_state, verbose=-1)
-    estimator = CausalForestDML(model_y=model_y, model_t=model_t, discrete_treatment=True, cv=cv, n_estimators=n_estimators, subforest_size=subforest_size, random_state=random_state)
+        n_estimators = max(subforest_size, (n_estimators // subforest_size) * subforest_size)
+    model_y = LGBMRegressor(n_estimators=50, learning_rate=0.05, max_depth=5, random_state=random_state, verbose=-1, n_jobs=n_jobs)
+    model_t = LGBMClassifier(n_estimators=50, learning_rate=0.05, max_depth=5, random_state=random_state, verbose=-1, n_jobs=n_jobs)
+    estimator = CausalForestDML(model_y=model_y, model_t=model_t, discrete_treatment=True, cv=cv, n_estimators=n_estimators, subforest_size=subforest_size, random_state=random_state, n_jobs=n_jobs)
     estimator.fit(Y, T, X=X, W=W)
     bundle = {'estimator': estimator, 'dummy_cols': dummy_cols, 'x_columns': list(X.columns), 'w_columns': list(W.columns), 'treatment_col': treatment_col, 'outcome_col': outcome_col}
     return bundle
@@ -127,7 +127,7 @@ def uplift_curve(y_true: np.ndarray | pd.Series, treatment: np.ndarray | pd.Seri
         cum_uplift.append(round(lift, 5))
     return {'fractions': fractions, 'cumulative_uplift': cum_uplift, 'average_uplift': round(float(cum_uplift[-1]), 5)}
 
-def train_naive_baseline(df: pd.DataFrame, treatment_col: str='discount', outcome_col: str='purchase', random_state: int=42) -> Dict[str, Any]:
+def train_naive_baseline(df: pd.DataFrame, treatment_col: str='discount', outcome_col: str='purchase', random_state: int=42, n_jobs: int=-1) -> Dict[str, Any]:
     cols_to_use = [c for c in df.columns if c not in ('true_effect', 'customer_id', treatment_col, outcome_col)]
     tier_cat = pd.Categorical(df['loyalty_tier'], categories=['Bronze', 'Silver', 'Gold'])
     tier_dummies = pd.get_dummies(tier_cat, prefix='tier', drop_first=True, dtype=float)
@@ -136,7 +136,7 @@ def train_naive_baseline(df: pd.DataFrame, treatment_col: str='discount', outcom
     models: Dict[int, LGBMClassifier] = {}
     for arm in [0, 10, 20]:
         mask = df[treatment_col] == arm
-        clf = LGBMClassifier(n_estimators=50, learning_rate=0.05, max_depth=4, random_state=random_state, verbose=-1)
+        clf = LGBMClassifier(n_estimators=50, learning_rate=0.05, max_depth=4, random_state=random_state, verbose=-1, n_jobs=n_jobs)
         clf.fit(X[mask], df.loc[mask, outcome_col])
         models[arm] = clf
     return {'models': models, 'feature_columns': list(X.columns)}

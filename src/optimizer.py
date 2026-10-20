@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy.optimize import milp, LinearConstraint
+from scipy.sparse import csc_matrix
 from scipy.stats import ks_2samp
 
 def allocate_budget(
@@ -21,24 +22,35 @@ def allocate_budget(
     if n <= 5000:
         c = np.concatenate([-profit_10, -profit_20])
         integrality = np.ones(2 * n)
-        row_budget = np.concatenate([np.full(n, 10.0), np.full(n, 20.0)])
-        a_rows = [row_budget]
+        row_idx = []
+        col_idx = []
+        data = []
+
+        row_idx.extend([0] * (2 * n))
+        col_idx.extend(range(2 * n))
+        data.extend([10.0] * n + [20.0] * n)
         lhs = [0.0]
         rhs = [float(total_budget)]
+
         for i in range(n):
-            row_mutex = np.zeros(2 * n)
-            row_mutex[i] = 1.0
-            row_mutex[n + i] = 1.0
-            a_rows.append(row_mutex)
+            r = 1 + i
+            row_idx.extend([r, r])
+            col_idx.extend([i, n + i])
+            data.extend([1.0, 1.0])
             lhs.append(0.0)
             rhs.append(1.0)
+
         if max_arm_20 is not None:
-            row_cap20 = np.zeros(2 * n)
-            row_cap20[n:] = 1.0
-            a_rows.append(row_cap20)
+            r = 1 + n
+            row_idx.extend([r] * n)
+            col_idx.extend(range(n, 2 * n))
+            data.extend([1.0] * n)
             lhs.append(0.0)
             rhs.append(float(max_arm_20))
-        constraints = LinearConstraint(np.vstack(a_rows), lhs, rhs)
+
+        num_rows = 1 + n + (1 if max_arm_20 is not None else 0)
+        A = csc_matrix((data, (row_idx, col_idx)), shape=(num_rows, 2 * n))
+        constraints = LinearConstraint(A, lhs, rhs)
         res = milp(c=c, integrality=integrality, constraints=constraints)
         if res.success:
             x_sol = res.x
