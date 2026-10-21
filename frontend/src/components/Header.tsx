@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScreenTab } from '../types.ts';
+import { apiService } from '../apiService.ts';
 
 interface HeaderProps {
   currentTab: ScreenTab;
@@ -17,6 +18,21 @@ export const Header: React.FC<HeaderProps> = ({
   isPipelineRunning,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isBackendLive, setIsBackendLive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      const live = await apiService.checkHealth();
+      if (mounted) setIsBackendLive(live);
+    };
+    check();
+    const interval = setInterval(check, 10000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const tabs: { id: ScreenTab; label: string }[] = [
     { id: 'upload-pipeline', label: 'Upload & Pipeline' },
@@ -58,9 +74,9 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded border border-[#bec8ce]/50 bg-[#eaf5f9] text-[#475053] font-label-code text-xs">
-              <span className="material-symbols-outlined text-sm text-[#2e94b9]">lock</span>
-              <span>Seed #42 Locked</span>
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded border border-[#bec8ce]/50 bg-[#eaf5f9] text-[#475053] font-label-code text-xs">
+              <span className={`w-2 h-2 rounded-full ${isBackendLive ? 'bg-emerald-500 animate-pulse' : isBackendLive === false ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
+              <span>{isBackendLive ? 'API: LIVE (FastAPI:8000)' : 'API: MOCK (Offline)'}</span>
             </div>
 
             <button
@@ -133,8 +149,8 @@ export const Header: React.FC<HeaderProps> = ({
             })}
           </nav>
           <div className="flex items-center gap-2 text-slate-500 font-label-code text-xs">
-            <span className="inline-block w-2 h-2 rounded-full bg-[#2e94b9]"></span>
-            <span>CLUSTER: ACTIVE (EVAL-NODE-03)</span>
+            <span className={`inline-block w-2 h-2 rounded-full ${isBackendLive ? 'bg-emerald-500' : 'bg-[#2e94b9]'}`}></span>
+            <span>{isBackendLive ? 'BACKEND: CONNECTED' : 'CLUSTER: ACTIVE (EVAL-NODE-03)'}</span>
           </div>
         </div>
 

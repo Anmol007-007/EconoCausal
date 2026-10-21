@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CustomerRecord, ScreenTab } from '../types.ts';
 import { INITIAL_CUSTOMERS } from '../mockData.ts';
 import { exportCustomersCSV } from '../exportUtils.ts';
+import { apiService } from '../apiService.ts';
 
 interface UploadPipelineViewProps {
   onNavigate: (tab: ScreenTab) => void;
@@ -28,6 +29,10 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
   const [isSimulatingLocalRun, setIsSimulatingLocalRun] = useState(false);
   const [customers, setCustomers] = useState<CustomerRecord[]>(INITIAL_CUSTOMERS);
   const [showToast, setShowToast] = useState<string | null>(null);
+  const [datasetName, setDatasetName] = useState<string>('synthetic_retail_50k.csv');
+  const [recordCount, setRecordCount] = useState<number>(50000);
+  const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const filteredCustomers = customers.filter(c => {
     const matchesSearch = c.cust_id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -53,8 +58,28 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
     }, 250);
   };
 
-  const handleGenerateSynthetic = () => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setDatasetName(file.name);
+    setShowToast(`Uploading & validating ${file.name}...`);
+    const res = await apiService.uploadDataset(file);
+    setIsLiveApi(res.isLive);
+    if (res.data && res.data.records) {
+      setRecordCount(res.data.records);
+    }
+    setShowToast(res.isLive ? `Validated ${file.name} on live FastAPI backend in ${res.latencyMs}ms` : `Parsed ${file.name} locally (offline mode)`);
+    setTimeout(() => setShowToast(null), 3000);
+  };
 
+  const handleGenerateSynthetic = async () => {
+    const newSeed = Math.floor(Math.random() * 1000) + 1;
+    setShowToast(`Requesting synthetic generation (Seed #${newSeed})...`);
+    const res = await apiService.uploadDataset(undefined, newSeed, 1000);
+    setIsLiveApi(res.isLive);
+    if (res.data && res.data.records) {
+      setRecordCount(res.data.records);
+    }
     const regenerated = INITIAL_CUSTOMERS.map(c => ({
       ...c,
       past_spend: +(c.past_spend * (0.95 + Math.random() * 0.1)).toFixed(2),
@@ -62,8 +87,8 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
       category_affinity: +(Math.min(0.99, Math.max(0.05, c.category_affinity + (Math.random() * 0.08 - 0.04)))).toFixed(2),
     }));
     setCustomers(regenerated);
-    setShowToast('Generated new synthetic batch (Seed #42 perturbed)');
-    setTimeout(() => setShowToast(null), 2500);
+    setShowToast(res.isLive ? `Generated live batch via FastAPI (Seed #${newSeed}) in ${res.latencyMs}ms` : `Generated synthetic batch (Seed #${newSeed} local)`);
+    setTimeout(() => setShowToast(null), 3000);
   };
 
   return (
@@ -138,22 +163,35 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-[#131d20]">synthetic_retail_50k.csv</span>
-                    <span className="font-label-code text-[10px] px-1.5 py-0.5 rounded bg-[#acdcee]/40 text-[#006481] font-semibold">
-                      In Memory
+                    <span className="text-sm font-semibold text-[#131d20]">{datasetName}</span>
+                    <span className={`font-label-code text-[10px] px-1.5 py-0.5 rounded font-semibold ${isLiveApi ? 'bg-emerald-100 text-emerald-800' : 'bg-[#acdcee]/40 text-[#006481]'}`}>
+                      {isLiveApi ? 'Live Backend' : 'In Memory'}
                     </span>
                   </div>
                   <span className="font-label-code text-xs text-slate-500 mt-0.5">
-                    14.2 MB • 50,000 records • 8 dimensions • Seed #42 (Reproducible)
+                    {recordCount.toLocaleString()} records • 8 dimensions • Seed #42 (Validated)
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".csv,.parquet"
+                  className="hidden"
+                />
                 <button
-                  onClick={() => {
-                    handleGenerateSynthetic();
-                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded border border-[#bec8ce]/60 hover:bg-slate-50 text-slate-700 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-xs text-[#006481]">upload_file</span>
+                  <span>Upload File</span>
+                </button>
+                <button
+                  onClick={() => handleGenerateSynthetic()}
                   className="px-3 py-1.5 rounded border border-[#bec8ce]/60 hover:bg-slate-50 text-slate-700 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                   type="button"
                 >

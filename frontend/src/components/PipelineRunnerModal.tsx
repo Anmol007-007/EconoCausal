@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScreenTab } from '../types.ts';
+import { apiService } from '../apiService.ts';
 
 interface PipelineRunnerModalProps {
   isOpen: boolean;
@@ -14,33 +15,35 @@ export const PipelineRunnerModal: React.FC<PipelineRunnerModalProps> = ({
 }) => {
   const [activeStep, setActiveStep] = useState<number>(0);
   const [completed, setCompleted] = useState<boolean>(false);
+  const [isLiveBackend, setIsLiveBackend] = useState<boolean>(false);
+  const [wallTime, setWallTime] = useState<string>('2.84s');
 
   const steps = [
     {
       title: 'Observational Ingestion & Trimming',
-      detail: 'Validating 50,000 customer vectors. Trimming 142 extreme points to enforce 0.05 < e(X) < 0.95 positivity.',
-      duration: '320ms'
+      detail: 'Validating customer vectors. Enforcing positivity support e(X) across treatment arms.',
+      duration: '210ms',
     },
     {
-      title: 'Stage 1: Nuisance Residualization',
-      detail: 'LightGBM Regressor (Y ~ W) & Classifier (T ~ W) across 5-fold cross-fitting. Eliminating bias leakage.',
-      duration: '850ms'
+      title: 'Stage 1: Nuisance Residualization & DAG Proof',
+      detail: 'Fitting LightGBM Regressors Y ~ W & T ~ W across K-folds. Testing backdoor identification.',
+      duration: '450ms',
     },
     {
       title: 'Stage 2: CausalForestDML Estimation',
-      detail: 'Constructing 500 orthogonalized causal trees. Computing Individual Treatment Effects (τ̂_i) for $10 & $20.',
-      duration: '980ms'
+      detail: 'Constructing orthogonalized causal trees. Estimating Individual Treatment Effects (tau_i).',
+      duration: '820ms',
     },
     {
       title: 'Stage 3: SciPy MILP Knapsack Convergence',
-      detail: 'Branch-and-Bound integer solver maximizing net incremental margin under promotional budget constraints.',
-      duration: '420ms'
+      detail: 'Sparse HiGHS solver maximizing net margin under budget & arm capacity constraints.',
+      duration: '180ms',
     },
     {
-      title: 'Stage 4: DoWhy Refutation & Drift Verification',
-      detail: 'Executing Placebo, Random Common Cause, 80% Data Subset, and Oster sensitivity bounds. Calculating PSI.',
-      duration: '310ms'
-    }
+      title: 'Stage 4: DoWhy Refutation & Drift Telemetry',
+      detail: 'Running Placebo, Common Cause, and Data Subset refuters. Evaluating PSI divergence.',
+      duration: '310ms',
+    },
   ];
 
   useEffect(() => {
@@ -50,18 +53,43 @@ export const PipelineRunnerModal: React.FC<PipelineRunnerModalProps> = ({
       return;
     }
 
-    let current = 0;
-    const interval = setInterval(() => {
-      current++;
-      if (current >= steps.length) {
-        clearInterval(interval);
-        setCompleted(true);
-      } else {
-        setActiveStep(current);
-      }
-    }, 700);
+    let isMounted = true;
+    const runLivePipeline = async () => {
+      const startTime = performance.now();
 
-    return () => clearInterval(interval);
+      setActiveStep(0);
+      const res0 = await apiService.uploadDataset(undefined, 42, 1000);
+      if (!isMounted) return;
+      if (res0.isLive) setIsLiveBackend(true);
+
+      setActiveStep(1);
+      await apiService.getDiagnostics();
+      if (!isMounted) return;
+
+      setActiveStep(2);
+      await apiService.runUplift({ n_estimators: 32, cv: 2 });
+      if (!isMounted) return;
+
+      setActiveStep(3);
+      await apiService.runAllocate({ total_budget: 5000, unit_margin: 45 });
+      if (!isMounted) return;
+
+      setActiveStep(4);
+      await apiService.checkDrift({ psi_threshold: 0.2 });
+      await apiService.getSummary();
+      if (!isMounted) return;
+
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+      setWallTime(`${elapsed}s`);
+      setActiveStep(5);
+      setCompleted(true);
+    };
+
+    runLivePipeline();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -78,27 +106,25 @@ export const PipelineRunnerModal: React.FC<PipelineRunnerModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif text-lg text-[#131d20] font-semibold">
-                {!completed ? 'Running Double ML & MILP Pipeline' : 'Pipeline Converged Successfully'}
+                {!completed ? 'Executing Live Double ML & MILP Pipeline' : 'Pipeline Converged Successfully'}
               </h3>
               <p className="text-xs text-[#576063]">
-                EconML CausalForestDML (cv=5) • SciPy Optimization • DoWhy Diagnostics
+                {isLiveBackend ? 'FastAPI Microservice Engine • EconML & SciPy MILP' : 'EconML CausalForestDML • SciPy Optimization (Deterministic)'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1 rounded"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
 
-        {}
         <div className="flex flex-col gap-2.5">
           {steps.map((step, idx) => {
             const isDone = idx < activeStep || completed;
             const isCurrent = idx === activeStep && !completed;
-            const isPending = idx > activeStep && !completed;
 
             return (
               <div
@@ -122,14 +148,16 @@ export const PipelineRunnerModal: React.FC<PipelineRunnerModalProps> = ({
                         <span className="text-slate-400">radio_button_unchecked</span>
                       )}
                     </span>
-                    <span className={`text-xs font-semibold ${
-                      isDone ? 'text-emerald-900' : isCurrent ? 'text-[#006481]' : 'text-slate-700'
-                    }`}>
+                    <span
+                      className={`text-xs font-semibold ${
+                        isDone ? 'text-emerald-900' : isCurrent ? 'text-[#006481]' : 'text-slate-700'
+                      }`}
+                    >
                       {step.title}
                     </span>
                   </div>
                   <span className="font-label-code text-[10px] text-slate-500">
-                    {isDone ? 'COMPLETED' : isCurrent ? step.duration : 'QUEUED'}
+                    {isDone ? 'COMPLETED' : isCurrent ? 'RUNNING' : 'QUEUED'}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 pl-6 leading-relaxed">
@@ -140,10 +168,11 @@ export const PipelineRunnerModal: React.FC<PipelineRunnerModalProps> = ({
           })}
         </div>
 
-        {}
         <div className="flex items-center justify-between pt-2 border-t border-[#bec8ce]/50">
           <span className="text-xs font-label-code text-slate-500">
-            {completed ? 'All 5 phases verified (Total wall-time: 2.84s)' : 'Executing cross-fitting...'}
+            {completed
+              ? `All 5 phases verified • Total wall-time: ${wallTime}`
+              : `Executing phase ${Math.min(activeStep + 1, 5)} of 5...`}
           </span>
           <div className="flex items-center gap-2">
             <button

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ScreenTab } from '../types.ts';
-import { DRIFT_METRICS_30D, DRIFT_METRICS_7D, MICROSERVICE_ENDPOINTS, REFUTER_SUITE } from '../mockData.ts';
 import { exportRefutationJSON } from '../exportUtils.ts';
+import { apiService, SummaryResult, DriftResult } from '../apiService.ts';
 
 interface ExecutiveDriftViewProps {
   onNavigate: (tab: ScreenTab) => void;
@@ -15,9 +15,29 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
 }) => {
   const [driftWindow, setDriftWindow] = useState<'7d' | '30d'>('7d');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<SummaryResult | null>(null);
+  const [driftData, setDriftData] = useState<DriftResult | null>(null);
+  const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
 
-  const activeDriftData = driftWindow === '7d' ? DRIFT_METRICS_7D : DRIFT_METRICS_30D;
-  const maxPsi = driftWindow === '7d' ? '0.082' : '0.096';
+  React.useEffect(() => {
+    let mounted = true;
+    Promise.all([apiService.getSummary(), apiService.checkDrift()]).then(([sumRes, driftRes]) => {
+      if (!mounted) return;
+      if (sumRes.data) setSummaryData(sumRes.data);
+      if (driftRes.data) setDriftData(driftRes.data);
+      setIsLiveApi(sumRes.isLive || driftRes.isLive);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const activeDriftData = driftData?.metrics || (driftWindow === '7d' ? DRIFT_METRICS_7D : DRIFT_METRICS_30D);
+  const maxPsi = driftData ? driftData.max_psi.toFixed(3) : (driftWindow === '7d' ? '0.082' : '0.096');
+  const netProfitDisplay = summaryData?.kpis ? `$${summaryData.kpis.net_incremental_profit.toLocaleString()}` : '$18,420';
+  const wasteSavedDisplay = summaryData?.kpis ? `$${summaryData.kpis.discount_waste_saved.toLocaleString()}` : '$11,240';
+  const persuadablesDisplay = summaryData?.kpis ? summaryData.kpis.targeted_persuadables.toLocaleString() : '382';
+  const sureThingsDisplay = summaryData?.kpis ? summaryData.kpis.sure_things_held_out.toLocaleString() : '15,900';
 
   const triggerDownloadReport = (type: 'PDF' | 'PPT') => {
     setToastMessage(`Generating Executive ${type} Causal Audit Report... Complete.`);
@@ -102,7 +122,7 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
             <span className="material-symbols-outlined text-[#006481] text-xl">payments</span>
           </div>
           <div className="my-1">
-            <div className="font-data-metric text-2xl text-[#131d20] font-semibold">$18,420</div>
+            <div className="font-data-metric text-2xl text-[#131d20] font-semibold">{netProfitDisplay}</div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="font-label-code text-xs text-[#006481] font-semibold">▲ +156%</span>
               <span className="text-xs text-slate-500">vs blanket promotional policy</span>
@@ -122,9 +142,9 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
             <span className="material-symbols-outlined text-[#006481] text-xl">savings</span>
           </div>
           <div className="my-1">
-            <div className="font-data-metric text-2xl text-[#131d20] font-semibold">$11,240</div>
+            <div className="font-data-metric text-2xl text-[#131d20] font-semibold">{wasteSavedDisplay}</div>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="font-label-code text-xs text-slate-700 font-semibold">15,900</span>
+              <span className="font-label-code text-xs text-slate-700 font-semibold">{sureThingsDisplay}</span>
               <span className="text-xs text-slate-500">“Sure Things” held out ($31.8k gross)</span>
             </div>
           </div>
@@ -143,7 +163,7 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </div>
           <div className="my-1">
             <div className="font-data-metric text-2xl text-[#131d20] font-semibold">
-              382 <span className="text-sm text-slate-500 font-normal">/ 409 Purchases</span>
+              {persuadablesDisplay} <span className="text-sm text-slate-500 font-normal">/ 409 Purchases</span>
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="font-label-code text-xs text-[#006481] font-semibold">1.07 Ratio</span>
@@ -212,17 +232,23 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
               <span className="font-label-code text-xs uppercase tracking-wider text-slate-500 font-semibold">
                 Executive Synthesis
               </span>
-              <p className="text-sm sm:text-base text-[#131d20] leading-relaxed">
-                By replacing standard propensity marketing with{' '}
-                <span className="font-semibold text-[#006481]">Double Machine Learning (DML)</span> and{' '}
-                <span className="font-semibold text-slate-700">SciPy Mixed-Integer Linear Programming (MILP)</span> optimization, the campaign captures{' '}
-                <span className="font-semibold text-[#131d20]">409 incremental purchases</span> from{' '}
-                <span className="font-semibold text-[#131d20]">382 high-yield persuadables</span> on a{' '}
-                <span className="font-semibold text-[#131d20]">$4,980 spend</span>. This delivers{' '}
-                <span className="font-bold text-[#006481]">$18,420 in net incremental profit</span>, representing an estimated{' '}
-                <span className="font-bold text-[#006481]">$11,240 (+156%) cost-efficiency gain</span> over blanket discounting and saving{' '}
-                <span className="font-semibold text-slate-700">$11,240</span> from being wasted on high-propensity customers who would have purchased regardless.
-              </p>
+              {summaryData?.narrative ? (
+                <p className="text-sm sm:text-base text-[#131d20] leading-relaxed">
+                  {summaryData.narrative}
+                </p>
+              ) : (
+                <p className="text-sm sm:text-base text-[#131d20] leading-relaxed">
+                  By replacing standard propensity marketing with{' '}
+                  <span className="font-semibold text-[#006481]">Double Machine Learning (DML)</span> and{' '}
+                  <span className="font-semibold text-slate-700">SciPy Mixed-Integer Linear Programming (MILP)</span> optimization, the campaign captures{' '}
+                  <span className="font-semibold text-[#131d20]">409 incremental purchases</span> from{' '}
+                  <span className="font-semibold text-[#131d20]">382 high-yield persuadables</span> on a{' '}
+                  <span className="font-semibold text-[#131d20]">$4,980 spend</span>. This delivers{' '}
+                  <span className="font-bold text-[#006481]">$18,420 in net incremental profit</span>, representing an estimated{' '}
+                  <span className="font-bold text-[#006481]">$11,240 (+156%) cost-efficiency gain</span> over blanket discounting and saving{' '}
+                  <span className="font-semibold text-slate-700">$11,240</span> from being wasted on high-propensity customers who would have purchased regardless.
+                </p>
+              )}
             </div>
           </div>
         </div>

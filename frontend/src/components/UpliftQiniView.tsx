@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ScreenTab } from '../types.ts';
 import { DECILE_DATA } from '../mockData.ts';
 import { exportDecilesCSV } from '../exportUtils.ts';
+import { apiService, UpliftResult } from '../apiService.ts';
 
 interface UpliftQiniViewProps {
   onNavigate: (tab: ScreenTab) => void;
@@ -13,6 +14,23 @@ export const UpliftQiniView: React.FC<UpliftQiniViewProps> = ({ onNavigate }) =>
   const [hoverCutoff, setHoverCutoff] = useState<number>(22.4);
   const [hoverPosition, setHoverPosition] = useState<number>(220);
   const [activeQuadrant, setActiveQuadrant] = useState<string | null>(null);
+  const [upliftData, setUpliftData] = useState<UpliftResult | null>(null);
+  const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
+  const [latency, setLatency] = useState<number>(0);
+
+  React.useEffect(() => {
+    let mounted = true;
+    apiService.runUplift().then((res) => {
+      if (mounted) {
+        setUpliftData(res.data);
+        setIsLiveApi(res.isLive);
+        setLatency(res.latencyMs);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -79,8 +97,8 @@ export const UpliftQiniView: React.FC<UpliftQiniViewProps> = ({ onNavigate }) =>
             <h1 className="font-serif text-2xl sm:text-3xl text-[#131d20] tracking-tight font-medium">
               Causal Uplift &amp; Benchmark Evaluation
             </h1>
-            <span className="px-2 py-0.5 rounded border border-[#bec8ce]/50 bg-[#eaf5f9] text-[#475053] font-label-code text-xs">
-              v2.4 DoubleML Kernel
+            <span className={`px-2 py-0.5 rounded border font-label-code text-xs font-semibold ${isLiveApi ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-[#bec8ce]/50 bg-[#eaf5f9] text-[#475053]'}`}>
+              {isLiveApi ? `FastAPI Live (${latency}ms)` : 'v2.4 DoubleML Kernel'}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-[#475053] max-w-4xl leading-relaxed">
@@ -88,13 +106,14 @@ export const UpliftQiniView: React.FC<UpliftQiniViewProps> = ({ onNavigate }) =>
           </p>
         </div>
 
-        {}
         <div className="flex items-center gap-3 overflow-x-auto py-1">
           <div className="flex items-center gap-3 px-3.5 py-2 rounded border border-[#bec8ce]/50 bg-[#f8fdff] shadow-xs">
             <div className="flex flex-col">
               <span className="font-label-code text-[10px] text-slate-400 uppercase tracking-wider">Qini Score</span>
               <div className="flex items-baseline gap-1.5">
-                <span className="font-data-metric text-xl text-[#006481] font-semibold">0.684</span>
+                <span className="font-data-metric text-xl text-[#006481] font-semibold">
+                  {upliftData ? upliftData.qini_score.toFixed(3) : '0.684'}
+                </span>
                 <span className="font-label-code text-xs text-[#2e94b9] font-medium flex items-center">▲ +41.0%</span>
               </div>
             </div>
@@ -106,7 +125,9 @@ export const UpliftQiniView: React.FC<UpliftQiniViewProps> = ({ onNavigate }) =>
             <div className="flex flex-col">
               <span className="font-label-code text-[10px] text-slate-400 uppercase tracking-wider">PEHE Metric</span>
               <div className="flex items-baseline gap-1.5">
-                <span className="font-data-metric text-xl text-[#2e94b9] font-semibold">0.0084</span>
+                <span className="font-data-metric text-xl text-[#2e94b9] font-semibold">
+                  {upliftData ? upliftData.pehe_rmse.toFixed(4) : '0.0084'}
+                </span>
                 <span className="font-label-code text-xs text-slate-500">σ_err</span>
               </div>
             </div>
