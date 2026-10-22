@@ -4,12 +4,6 @@ import {
   DriftMetric,
   RefuterTest,
 } from './types.ts';
-import {
-  INITIAL_CUSTOMERS,
-  MOCK_DECILE_ROWS,
-  MOCK_DRIFT_METRICS,
-  MOCK_REFUTER_TESTS,
-} from './mockData.ts';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -103,6 +97,42 @@ export interface SummaryResult {
   };
 }
 
+export interface BenchmarkItem {
+  id: string;
+  name: string;
+  description: string;
+  treatment: string;
+  outcome: string;
+  features: string[];
+  records_default: number;
+}
+
+export interface SchemaReport {
+  is_valid: boolean;
+  records: number;
+  original_columns: string[];
+  treatment_col: string | null;
+  outcome_col: string | null;
+  feature_cols: string[];
+  imputed_missing_counts: Record<string, number>;
+  detected_types: Record<string, string>;
+  warnings: string[];
+  errors: string[];
+}
+
+export interface UploadResult {
+  status: string;
+  dataset_id: string;
+  records: number;
+  columns: string[];
+  missingness: number;
+  confounders: string[];
+  treatment: string;
+  outcome: string;
+  validated: boolean;
+  schema_report?: SchemaReport;
+}
+
 async function requestWithFallback<T>(
   url: string,
   options: RequestInit,
@@ -127,7 +157,7 @@ async function requestWithFallback<T>(
       };
     }
   } catch (err) {
-    
+
   }
 
   return {
@@ -150,19 +180,57 @@ export const apiService = {
     }
   },
 
+  async getBenchmarks(): Promise<ApiResponse<BenchmarkItem[]>> {
+    const fallback: BenchmarkItem[] = [
+      {
+        id: 'synthetic_retail',
+        name: 'EconoCausal Confounded Retail (50k)',
+        description: "Observational retail promo campaign with non-linear confounding, Simpson's paradox, and discrete coupon arms ($0, $10, $20).",
+        treatment: 'discount (0, 10, 20)',
+        outcome: 'purchase (binary)',
+        features: ['past_spend', 'recency_days', 'loyalty_tier', 'age', 'category_affinity'],
+        records_default: 50000,
+      },
+      {
+        id: 'hillstrom_email',
+        name: 'Kevin Hillstrom MineThatData',
+        description: 'Classic direct marketing uplift benchmark with 3 arms (No E-mail, Mens E-mail, Womens E-mail) and conversion tracking.',
+        treatment: 'discount (0=Control, 10=Mens, 20=Womens)',
+        outcome: 'purchase (binary)',
+        features: ['past_spend', 'recency_days', 'loyalty_tier', 'age', 'category_affinity'],
+        records_default: 10000,
+      },
+      {
+        id: 'starbucks_uplift',
+        name: 'Starbucks Mobile Promo Challenge',
+        description: 'Starbucks randomized mobile coupon incentive benchmark evaluating counterfactual incremental store visits vs discount waste.',
+        treatment: 'discount (0=Control, 10=$10 Coupon, 20=$20 Coupon)',
+        outcome: 'purchase (binary)',
+        features: ['past_spend', 'recency_days', 'loyalty_tier', 'age', 'category_affinity'],
+        records_default: 10000,
+      },
+    ];
+
+    return requestWithFallback('/api/benchmarks', { method: 'GET' }, fallback);
+  },
+
   async uploadDataset(
     file?: File,
     seed: number = 42,
-    nRecords: number = 1000
-  ): Promise<ApiResponse<any>> {
+    nRecords: number = 1000,
+    benchmark?: string
+  ): Promise<ApiResponse<UploadResult>> {
     const formData = new FormData();
     formData.append('seed', seed.toString());
     formData.append('n_records', nRecords.toString());
     if (file) {
       formData.append('file', file);
     }
+    if (benchmark) {
+      formData.append('benchmark', benchmark);
+    }
 
-    const fallback = {
+    const fallback: UploadResult = {
       status: 'success',
       dataset_id: `ds_${nRecords}_${seed}`,
       records: nRecords,
@@ -172,9 +240,29 @@ export const apiService = {
       treatment: 'discount',
       outcome: 'purchase',
       validated: true,
+      schema_report: {
+        is_valid: true,
+        records: nRecords,
+        original_columns: ['past_spend', 'recency_days', 'loyalty_tier', 'category_affinity', 'age', 'discount', 'purchase'],
+        treatment_col: 'discount',
+        outcome_col: 'purchase',
+        feature_cols: ['past_spend', 'recency_days', 'loyalty_tier', 'age', 'category_affinity'],
+        imputed_missing_counts: {},
+        detected_types: { past_spend: 'float64', recency_days: 'int64', loyalty_tier: 'object', age: 'int64', category_affinity: 'float64', discount: 'int64', purchase: 'int64' },
+        warnings: [],
+        errors: [],
+      },
     };
 
     return requestWithFallback('/api/upload', { method: 'POST', body: formData }, fallback);
+  },
+
+  async loadBenchmark(
+    benchmarkId: string,
+    nRecords: number = 1000,
+    seed: number = 42
+  ): Promise<ApiResponse<UploadResult>> {
+    return this.uploadDataset(undefined, seed, nRecords, benchmarkId);
   },
 
   async runUplift(params?: {

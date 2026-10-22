@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CustomerRecord, ScreenTab } from '../types.ts';
 import { INITIAL_CUSTOMERS } from '../mockData.ts';
 import { exportCustomersCSV } from '../exportUtils.ts';
-import { apiService } from '../apiService.ts';
+import { apiService, SchemaReport } from '../apiService.ts';
 
 interface UploadPipelineViewProps {
   onNavigate: (tab: ScreenTab) => void;
@@ -32,6 +32,9 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
   const [datasetName, setDatasetName] = useState<string>('synthetic_retail_50k.csv');
   const [recordCount, setRecordCount] = useState<number>(50000);
   const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
+  const [selectedBenchmark, setSelectedBenchmark] = useState<string>('synthetic_retail');
+  const [schemaReport, setSchemaReport] = useState<SchemaReport | null>(null);
+  const [isLoadingBenchmark, setIsLoadingBenchmark] = useState<boolean>(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const filteredCustomers = customers.filter(c => {
@@ -58,6 +61,23 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
     }, 250);
   };
 
+  const handleBenchmarkSelect = async (benchId: string) => {
+    setSelectedBenchmark(benchId);
+    setIsLoadingBenchmark(true);
+    const label = benchId === 'hillstrom_email' ? 'hillstrom_email.csv' : (benchId === 'starbucks_uplift' ? 'starbucks_uplift.csv' : 'synthetic_retail_50k.csv');
+    setDatasetName(label);
+    setShowToast(`Ingesting ${label} benchmark...`);
+    const res = await apiService.loadBenchmark(benchId);
+    setIsLiveApi(res.isLive);
+    setIsLoadingBenchmark(false);
+    if (res.data) {
+      if (res.data.records) setRecordCount(res.data.records);
+      if (res.data.schema_report) setSchemaReport(res.data.schema_report);
+    }
+    setShowToast(res.isLive ? `Loaded ${label} via live FastAPI in ${res.latencyMs}ms` : `Loaded ${label} locally (offline mode)`);
+    setTimeout(() => setShowToast(null), 3000);
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -65,8 +85,9 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
     setShowToast(`Uploading & validating ${file.name}...`);
     const res = await apiService.uploadDataset(file);
     setIsLiveApi(res.isLive);
-    if (res.data && res.data.records) {
-      setRecordCount(res.data.records);
+    if (res.data) {
+      if (res.data.records) setRecordCount(res.data.records);
+      if (res.data.schema_report) setSchemaReport(res.data.schema_report);
     }
     setShowToast(res.isLive ? `Validated ${file.name} on live FastAPI backend in ${res.latencyMs}ms` : `Parsed ${file.name} locally (offline mode)`);
     setTimeout(() => setShowToast(null), 3000);
@@ -155,8 +176,36 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
               </div>
             </div>
 
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-[#eaf5f9] border border-[#bec8ce]/40">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-label-code text-xs font-semibold text-[#006481] uppercase px-1">Benchmarks:</span>
+                {[
+                  { id: 'synthetic_retail', label: 'EconoCausal Retail (50k)' },
+                  { id: 'hillstrom_email', label: 'Hillstrom Email (10k)' },
+                  { id: 'starbucks_uplift', label: 'Starbucks Promo (10k)' },
+                ].map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => handleBenchmarkSelect(b.id)}
+                    disabled={isLoadingBenchmark}
+                    className={`px-2.5 py-1 rounded text-xs font-medium font-label-code transition-all cursor-pointer ${
+                      selectedBenchmark === b.id
+                        ? 'bg-[#006481] text-white shadow-xs'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-[#bec8ce]/50'
+                    }`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+              <span className="font-label-code text-[11px] text-slate-500">
+                1-Click Dataset Adapter
+              </span>
+            </div>
+
             {}
-            <div className="mt-4 p-4 rounded-lg border border-[#bec8ce]/60 bg-[#f8fdff] flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="mt-3 p-4 rounded-lg border border-[#bec8ce]/60 bg-[#f8fdff] flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
                 <div className="w-11 h-11 rounded border border-[#bec8ce]/60 bg-white flex items-center justify-center text-[#006481] shrink-0">
                   <span className="material-symbols-outlined text-2xl">dataset</span>
@@ -235,6 +284,20 @@ export const UploadPipelineView: React.FC<UploadPipelineViewProps> = ({
                 <span className="font-label-code text-[11px] text-slate-600">Purchase Flag</span>
               </div>
             </div>
+
+            {schemaReport && (
+              <div className="mt-4 p-3.5 rounded-lg border border-emerald-200 bg-emerald-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-emerald-900 font-medium">
+                  <span className="material-symbols-outlined text-base text-emerald-600">verified</span>
+                  <span>
+                    Auto-Ingestion Verified • Treatment [{schemaReport.treatment_col}] • Outcome [{schemaReport.outcome_col}] • {schemaReport.feature_cols.length} Confounders Mapped
+                  </span>
+                </div>
+                <div className="font-label-code text-emerald-800 text-[11px] px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300">
+                  Imputed NaNs: {Object.values(schemaReport.imputed_missing_counts).reduce((a, b) => a + b, 0)}
+                </div>
+              </div>
+            )}
           </div>
 
           {}

@@ -87,3 +87,23 @@ def test_summary_endpoint():
     assert "pillars" in data
     assert len(data["pillars"]) == 4
     assert "kpis" in data
+
+def test_get_benchmarks_endpoint():
+    response = client.get("/api/benchmarks")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 3
+    ids = [b["id"] for b in data]
+    assert "synthetic_retail" in ids
+    assert "hillstrom_email" in ids
+    assert "starbucks_uplift" in ids
+
+def test_upload_dataset_benchmark():
+    response = client.post("/api/upload", data={"benchmark": "hillstrom_email", "n_records": 120, "seed": 42})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["records"] == 120
+    assert "schema_report" in data
+    assert data["schema_report"]["is_valid"] is True

@@ -8,7 +8,12 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from src.data_gen import generate_data, compute_true_uplift
+from src.data_gen import (
+    generate_data,
+    compute_true_uplift,
+    load_benchmark_dataset,
+    validate_and_impute_dataset,
+)
 from src.causal_model import (
     build_dag,
     identify_effect,
@@ -79,10 +84,44 @@ class DriftRequest(BaseModel):
 def health_check() -> Dict[str, str]:
     return {"status": "healthy", "service": "EconoCausal API", "version": "1.0.0"}
 
+@app.get("/benchmarks")
+@app.get("/api/benchmarks")
+def get_benchmarks() -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": "synthetic_retail",
+            "name": "EconoCausal Confounded Retail (50k)",
+            "description": "Observational retail promo campaign with non-linear confounding, Simpson's paradox, and discrete coupon arms ($0, $10, $20).",
+            "treatment": "discount (0, 10, 20)",
+            "outcome": "purchase (binary)",
+            "features": ["past_spend", "recency_days", "loyalty_tier", "age", "category_affinity"],
+            "records_default": 50000,
+        },
+        {
+            "id": "hillstrom_email",
+            "name": "Kevin Hillstrom MineThatData",
+            "description": "Classic direct marketing uplift benchmark with 3 arms (No E-mail, Mens E-mail, Womens E-mail) and conversion tracking.",
+            "treatment": "discount (0=Control, 10=Mens, 20=Womens)",
+            "outcome": "purchase (binary)",
+            "features": ["past_spend", "recency_days", "loyalty_tier", "age", "category_affinity"],
+            "records_default": 10000,
+        },
+        {
+            "id": "starbucks_uplift",
+            "name": "Starbucks Mobile Promo Challenge",
+            "description": "Starbucks randomized mobile coupon incentive benchmark evaluating counterfactual incremental store visits vs discount waste.",
+            "treatment": "discount (0=Control, 10=$10 Coupon, 20=$20 Coupon)",
+            "outcome": "purchase (binary)",
+            "features": ["past_spend", "recency_days", "loyalty_tier", "age", "category_affinity"],
+            "records_default": 10000,
+        },
+    ]
+
 @app.post("/upload")
 @app.post("/api/upload")
 async def upload_dataset(
     file: Optional[UploadFile] = File(None),
+    benchmark: Optional[str] = Form(None),
     seed: int = Form(42),
     n_records: int = Form(1000),
 ) -> Dict[str, Any]:
@@ -90,11 +129,16 @@ async def upload_dataset(
         content = await file.read()
         filename = file.filename or "data.csv"
         if filename.endswith(".parquet"):
-            df = pd.read_parquet(io.BytesIO(content))
+            raw_df = pd.read_parquet(io.BytesIO(content))
         else:
-            df = pd.read_csv(io.BytesIO(content))
+            raw_df = pd.read_csv(io.BytesIO(content))
+        df, report = validate_and_impute_dataset(raw_df)
+    elif benchmark is not None and str(benchmark).strip():
+        raw_df = load_benchmark_dataset(name=benchmark, n=n_records, seed=seed)
+        df, report = validate_and_impute_dataset(raw_df)
     else:
-        df = generate_data(n=n_records, seed=seed)
+        raw_df = generate_data(n=n_records, seed=seed)
+        df, report = validate_and_impute_dataset(raw_df)
 
     _STATE["df"] = df
     _STATE["dml_bundle"] = None
@@ -116,9 +160,10 @@ async def upload_dataset(
         "columns": list(df.columns),
         "missingness": round(missing_pct, 4),
         "confounders": [c for c in CONFOUNDERS if c in df.columns],
-        "treatment": "discount" if "discount" in df.columns else None,
-        "outcome": "purchase" if "purchase" in df.columns else None,
-        "validated": len(present) == len(req_cols),
+        "treatment": report.get("treatment_col") or "discount",
+        "outcome": report.get("outcome_col") or "purchase",
+        "validated": report.get("is_valid", True),
+        "schema_report": report,
     }
 
 @app.post("/uplift")
