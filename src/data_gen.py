@@ -207,8 +207,9 @@ def validate_and_impute_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[st
     loyalty_candidates = ['loyalty_tier', 'tier', 'segment', 'customer_segment', 'membership']
     found_loyalty = next((c for c in clean_df.columns if c.lower() in loyalty_candidates and c.lower() != str(found_treatment).lower()), None)
     if found_loyalty:
-        clean_df['loyalty_tier'] = clean_df[found_loyalty].astype(str)
-        clean_df['loyalty_tier'] = clean_df['loyalty_tier'].apply(lambda x: x if x in LOYALTY_TIERS else ('Gold' if 'gold' in x.lower() else ('Silver' if 'silver' in x.lower() else 'Bronze')))
+        clean_df['loyalty_tier'] = clean_df[found_loyalty].apply(
+            lambda x: np.nan if pd.isna(x) else (x if x in LOYALTY_TIERS else ('Gold' if 'gold' in str(x).lower() else ('Silver' if 'silver' in str(x).lower() else 'Bronze')))
+        )
     else:
         clean_df['loyalty_tier'] = pd.qcut(clean_df['past_spend'].rank(method='first'), q=[0.0, 0.5, 0.85, 1.0], labels=LOYALTY_TIERS).astype(str)
         report['warnings'].append('loyalty_tier column synthesized from past_spend quantiles.')
