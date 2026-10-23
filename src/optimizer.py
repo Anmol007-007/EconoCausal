@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
-from scipy.optimize import milp, LinearConstraint
+from scipy.optimize import Bounds, LinearConstraint, milp
 from scipy.sparse import csc_matrix
 from scipy.stats import ks_2samp
 
@@ -13,12 +13,46 @@ def allocate_budget(
     total_budget: float = 5000.0,
     unit_margin: float = 45.0,
     max_arm_20: Optional[int] = None,
+    min_margin_floor: float = 0.0,
+    frequency_cap_days: Optional[int] = None,
+    cohort_whitelist: Optional[List[str]] = None,
+    max_discount_rate: Optional[float] = None,
 ) -> Dict[str, Any]:
     n = len(df)
     uplift_10 = np.asarray(uplift_10, dtype=float)
     uplift_20 = np.asarray(uplift_20, dtype=float)
     profit_10 = uplift_10 * unit_margin - 10.0
     profit_20 = uplift_20 * unit_margin - 20.0
+
+    eligible_10 = np.ones(n, dtype=bool)
+    eligible_20 = np.ones(n, dtype=bool)
+
+    margin_excluded = 0
+    if min_margin_floor > 0.0:
+        low_10 = profit_10 < min_margin_floor
+        low_20 = profit_20 < min_margin_floor
+        margin_excluded = int(np.sum(low_10 & low_20))
+        eligible_10 &= ~low_10
+        eligible_20 &= ~low_20
+
+    freq_excluded = 0
+    if frequency_cap_days is not None and "recency_days" in df.columns:
+        recency = df["recency_days"].values
+        recent_mask = recency < frequency_cap_days
+        freq_excluded = int(np.sum(recent_mask))
+        eligible_10 &= ~recent_mask
+        eligible_20 &= ~recent_mask
+
+    cohort_excluded = 0
+    if cohort_whitelist is not None and "loyalty_tier" in df.columns:
+        tiers = df["loyalty_tier"].astype(str).values
+        not_whitelisted = ~np.isin(tiers, cohort_whitelist)
+        cohort_excluded = int(np.sum(not_whitelisted))
+        eligible_10 &= ~not_whitelisted
+        eligible_20 &= ~not_whitelisted
+
+    max_treated = int(max_discount_rate * n) if max_discount_rate is not None else None
+
     if n <= 5000:
         c = np.concatenate([-profit_10, -profit_20])
         integrality = np.ones(2 * n)
@@ -40,26 +74,42 @@ def allocate_budget(
             lhs.append(0.0)
             rhs.append(1.0)
 
+        current_row = 1 + n
         if max_arm_20 is not None:
-            r = 1 + n
-            row_idx.extend([r] * n)
+            row_idx.extend([current_row] * n)
             col_idx.extend(range(n, 2 * n))
             data.extend([1.0] * n)
             lhs.append(0.0)
             rhs.append(float(max_arm_20))
+            current_row += 1
 
-        num_rows = 1 + n + (1 if max_arm_20 is not None else 0)
-        A = csc_matrix((data, (row_idx, col_idx)), shape=(num_rows, 2 * n))
+        if max_treated is not None:
+            row_idx.extend([current_row] * (2 * n))
+            col_idx.extend(range(2 * n))
+            data.extend([1.0] * (2 * n))
+            lhs.append(0.0)
+            rhs.append(float(max_treated))
+            current_row += 1
+
+        A = csc_matrix((data, (row_idx, col_idx)), shape=(current_row, 2 * n))
         constraints = LinearConstraint(A, lhs, rhs)
-        res = milp(c=c, integrality=integrality, constraints=constraints)
+        ub_vars = np.concatenate([eligible_10.astype(float), eligible_20.astype(float)])
+        bounds = Bounds(lb=0.0, ub=ub_vars)
+        res = milp(c=c, integrality=integrality, constraints=constraints, bounds=bounds)
         if res.success:
             x_sol = res.x
-            x10 = x_sol[:n] > 0.5
-            x20 = x_sol[n:] > 0.5
+            x10 = (x_sol[:n] > 0.5) & eligible_10
+            x20 = (x_sol[n:] > 0.5) & eligible_20
         else:
-            x10, x20 = _greedy_knapsack(profit_10, profit_20, total_budget, max_arm_20)
+            x10, x20 = _greedy_knapsack(
+                profit_10, profit_20, total_budget, max_arm_20,
+                eligible_10, eligible_20, max_treated
+            )
     else:
-        x10, x20 = _greedy_knapsack(profit_10, profit_20, total_budget, max_arm_20)
+        x10, x20 = _greedy_knapsack(
+            profit_10, profit_20, total_budget, max_arm_20,
+            eligible_10, eligible_20, max_treated
+        )
 
     optimal_arm = np.zeros(n, dtype=int)
     optimal_arm[x10] = 10
@@ -79,7 +129,7 @@ def allocate_budget(
             quadrants.append("Sure Thing")
         else:
             quadrants.append("Lost Cause")
-            
+
     allocated_df = pd.DataFrame({
         "optimal_discount": optimal_arm,
         "expected_profit": np.round(expected_profit, 2),
@@ -102,6 +152,15 @@ def allocate_budget(
         "alloc_0_count": int(np.sum(optimal_arm == 0)),
         "alloc_10_count": int(np.sum(optimal_arm == 10)),
         "alloc_20_count": int(np.sum(optimal_arm == 20)),
+        "policy_metrics": {
+            "min_margin_floor": min_margin_floor,
+            "frequency_cap_days": frequency_cap_days,
+            "cohort_whitelist": cohort_whitelist,
+            "max_discount_rate": max_discount_rate,
+            "excluded_by_margin_floor": margin_excluded,
+            "excluded_by_frequency_cap": freq_excluded,
+            "excluded_by_cohort": cohort_excluded,
+        },
     }
 
 def _greedy_knapsack(
@@ -109,33 +168,55 @@ def _greedy_knapsack(
     profit_20: np.ndarray,
     budget: float,
     max_arm_20: Optional[int] = None,
+    eligible_10: Optional[np.ndarray] = None,
+    eligible_20: Optional[np.ndarray] = None,
+    max_treated: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     n = len(profit_10)
+    if eligible_10 is None:
+        eligible_10 = np.ones(n, dtype=bool)
+    if eligible_20 is None:
+        eligible_20 = np.ones(n, dtype=bool)
+
     x10 = np.zeros(n, dtype=bool)
     x20 = np.zeros(n, dtype=bool)
     candidates = []
     for i in range(n):
         p10 = profit_10[i]
         p20 = profit_20[i]
-        if p10 > 0 and p10 >= p20:
+        e10 = eligible_10[i]
+        e20 = eligible_20[i]
+        if e10 and e20:
+            if p10 > 0 and p10 >= p20:
+                candidates.append((p10 / 10.0, 10, i, p10))
+            elif p20 > 0 and p20 > p10:
+                candidates.append((p20 / 20.0, 20, i, p20))
+        elif e10 and p10 > 0:
             candidates.append((p10 / 10.0, 10, i, p10))
-        elif p20 > 0 and p20 > p10:
+        elif e20 and p20 > 0:
             candidates.append((p20 / 20.0, 20, i, p20))
+
     candidates.sort(key=lambda item: item[0], reverse=True)
     rem_budget = budget
     count_20 = 0
+    total_count = 0
     for density, arm, idx, prof in candidates:
+        if max_treated is not None and total_count >= max_treated:
+            break
         if arm == 10 and rem_budget >= 10.0:
             x10[idx] = True
             rem_budget -= 10.0
+            total_count += 1
         elif arm == 20 and rem_budget >= 20.0:
             if max_arm_20 is None or count_20 < max_arm_20:
                 x20[idx] = True
                 rem_budget -= 20.0
                 count_20 += 1
-            elif rem_budget >= 10.0 and profit_10[idx] > 0:
+                total_count += 1
+            elif rem_budget >= 10.0 and profit_10[idx] > 0 and eligible_10[idx]:
                 x10[idx] = True
                 rem_budget -= 10.0
+                total_count += 1
     return x10, x20
 
 def calculate_psi(

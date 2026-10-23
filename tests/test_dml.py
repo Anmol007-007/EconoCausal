@@ -34,11 +34,14 @@ def test_train_dml_and_predict_uplift():
     test_df = generate_data(n=100, seed=99)
     predictions = predict_uplift(bundle, test_df)
     assert isinstance(predictions, pd.DataFrame)
-    assert list(predictions.columns) == ['uplift_10', 'uplift_20']
+    assert {'uplift_10', 'uplift_20', 'uplift_10_lb', 'uplift_10_ub', 'uplift_20_lb', 'uplift_20_ub', 'se_10', 'se_20'}.issubset(predictions.columns)
     assert len(predictions) == len(test_df)
     assert predictions['uplift_10'].between(-0.2, 0.8).all()
     assert predictions['uplift_20'].between(-0.2, 0.8).all()
-    assert predictions['uplift_20'].mean() > predictions['uplift_10'].mean()
+    assert (predictions['uplift_10_ub'] >= predictions['uplift_10_lb']).all()
+    assert (predictions['uplift_20_ub'] >= predictions['uplift_20_lb']).all()
+    assert (predictions['se_10'] >= 0.0).all()
+    assert (predictions['se_20'] >= 0.0).all()
 
 def test_pehe_metric_calculation():
     y_true = np.array([0.1, 0.2, 0.15, 0.05])

@@ -33,6 +33,10 @@ export interface UpliftResult {
     cumulative_uplift: number[];
     average_uplift: number;
   };
+  ate_10_ci?: [number, number];
+  ate_20_ci?: [number, number];
+  mean_se_10?: number;
+  mean_se_20?: number;
   execution_time_seconds: number;
 }
 
@@ -48,6 +52,15 @@ export interface AllocationResult {
   alloc_10_count: number;
   alloc_20_count: number;
   quadrant_breakdown: Record<string, number>;
+  policy_metrics?: {
+    min_margin_floor?: number;
+    frequency_cap_days?: number | null;
+    cohort_whitelist?: string[] | null;
+    max_discount_rate?: number | null;
+    excluded_by_margin_floor?: number;
+    excluded_by_frequency_cap?: number;
+    excluded_by_cohort?: number;
+  };
 }
 
 export interface DiagnosticsResult {
@@ -306,6 +319,10 @@ export const apiService = {
     total_budget?: number;
     unit_margin?: number;
     max_arm_20?: number;
+    min_margin_floor?: number;
+    frequency_cap_days?: number;
+    cohort_whitelist?: string[];
+    max_discount_rate?: number;
   }): Promise<ApiResponse<AllocationResult>> {
     const budget = params?.total_budget ?? 5000;
     const margin = params?.unit_margin ?? 45;
@@ -326,6 +343,15 @@ export const apiService = {
         'Sure Thing': 15900,
         'Lost Cause': 28218,
         'Sleeping Dog': 5500,
+      },
+      policy_metrics: {
+        min_margin_floor: params?.min_margin_floor ?? 0,
+        frequency_cap_days: params?.frequency_cap_days ?? null,
+        cohort_whitelist: params?.cohort_whitelist ?? null,
+        max_discount_rate: params?.max_discount_rate ?? null,
+        excluded_by_margin_floor: 0,
+        excluded_by_frequency_cap: 0,
+        excluded_by_cohort: 0,
       },
     };
 

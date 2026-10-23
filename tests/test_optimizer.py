@@ -101,3 +101,52 @@ def test_generate_executive_summary():
     assert len(summary["pillars"]) == 4
     assert summary["kpis"]["net_incremental_profit"] == 18420.0
     assert summary["kpis"]["retrain_recommended"] is False
+
+def test_allocate_budget_frequency_capping():
+    n = 20
+    df = pd.DataFrame({
+        "cust_id": [f"C-{i:03d}" for i in range(n)],
+        "recency_days": [3 if i < 10 else 45 for i in range(n)],
+    })
+    u10 = np.full(n, 0.40)
+    u20 = np.full(n, 0.60)
+    res = allocate_budget(df, u10, u20, total_budget=500.0, frequency_cap_days=14)
+    alloc_df = res["allocated_df"]
+    recent_treated = alloc_df[df["recency_days"] < 14]["optimal_discount"]
+    assert (recent_treated == 0).all()
+    assert res["policy_metrics"]["excluded_by_frequency_cap"] == 10
+
+def test_allocate_budget_cohort_whitelist():
+    n = 20
+    df = pd.DataFrame({
+        "cust_id": [f"C-{i:03d}" for i in range(n)],
+        "loyalty_tier": ["Gold" if i < 10 else "Silver" for i in range(n)],
+    })
+    u10 = np.full(n, 0.40)
+    u20 = np.full(n, 0.60)
+    res = allocate_budget(df, u10, u20, total_budget=500.0, cohort_whitelist=["Silver"])
+    alloc_df = res["allocated_df"]
+    gold_treated = alloc_df[df["loyalty_tier"] == "Gold"]["optimal_discount"]
+    assert (gold_treated == 0).all()
+    assert res["policy_metrics"]["excluded_by_cohort"] == 10
+
+def test_allocate_budget_min_margin_floor():
+    n = 10
+    df = pd.DataFrame({"cust_id": [f"C-{i:03d}" for i in range(n)]})
+    u10 = np.array([0.25, 0.25, 0.35, 0.35, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10])
+    u20 = np.zeros(n)
+    res = allocate_budget(df, u10, u20, total_budget=500.0, unit_margin=45.0, min_margin_floor=4.0)
+    alloc_df = res["allocated_df"]
+    treated = alloc_df[alloc_df["optimal_discount"] > 0]
+    assert (treated["expected_profit"] >= 4.0).all()
+    assert res["policy_metrics"]["excluded_by_margin_floor"] == 8
+
+def test_allocate_budget_max_discount_rate():
+    n = 50
+    df = pd.DataFrame({"cust_id": [f"C-{i:03d}" for i in range(n)]})
+    u10 = np.full(n, 0.50)
+    u20 = np.full(n, 0.70)
+    res = allocate_budget(df, u10, u20, total_budget=1000.0, max_discount_rate=0.20)
+    alloc_df = res["allocated_df"]
+    treated_count = (alloc_df["optimal_discount"] > 0).sum()
+    assert treated_count <= int(0.20 * n)

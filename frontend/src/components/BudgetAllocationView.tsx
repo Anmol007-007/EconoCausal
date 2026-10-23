@@ -23,6 +23,9 @@ export const BudgetAllocationView: React.FC<BudgetAllocationViewProps> = ({
   const [tierSilver, setTierSilver] = useState(true);
   const [tierGold, setTierGold] = useState(true);
   const [tierPlatinum, setTierPlatinum] = useState(false);
+  const [frequencyCapDays, setFrequencyCapDays] = useState<number>(0);
+  const [minMarginFloor, setMinMarginFloor] = useState<number>(0);
+  const [maxDiscountRate, setMaxDiscountRate] = useState<number>(100);
   const [searchRoster, setSearchRoster] = useState('');
   const [filterArm, setFilterArm] = useState<'All' | '0' | '10' | '20'>('All');
   const [isSolving, setIsSolving] = useState(false);
@@ -35,7 +38,19 @@ export const BudgetAllocationView: React.FC<BudgetAllocationViewProps> = ({
   const handleRunMilp = async () => {
     setIsSolving(true);
     setSolveSuccess(null);
-    const res = await apiService.runAllocate({ total_budget: totalBudget, unit_margin: unitMargin });
+    const whitelist: string[] = [];
+    if (tierBronze) whitelist.push('Bronze');
+    if (tierSilver) whitelist.push('Silver');
+    if (tierGold) whitelist.push('Gold');
+
+    const res = await apiService.runAllocate({
+      total_budget: totalBudget,
+      unit_margin: unitMargin,
+      min_margin_floor: minMarginFloor > 0 ? minMarginFloor : undefined,
+      frequency_cap_days: frequencyCapDays > 0 ? frequencyCapDays : undefined,
+      cohort_whitelist: whitelist.length < 3 ? whitelist : undefined,
+      max_discount_rate: maxDiscountRate < 100 ? maxDiscountRate / 100 : undefined,
+    });
     setIsSolving(false);
     setIsLiveApi(res.isLive);
     if (res.data) {
@@ -48,6 +63,7 @@ export const BudgetAllocationView: React.FC<BudgetAllocationViewProps> = ({
         alloc0Count: res.data.alloc_0_count,
         alloc10Count: res.data.alloc_10_count,
         alloc20Count: res.data.alloc_20_count,
+        policyMetrics: res.data.policy_metrics,
       });
     }
     setSolveSuccess(res.isLive ? `SciPy MILP sparse solver converged in ${res.latencyMs}ms via FastAPI` : `Branch-and-Bound converged in 42ms locally`);
@@ -317,6 +333,65 @@ export const BudgetAllocationView: React.FC<BudgetAllocationViewProps> = ({
                 </label>
               </div>
             </div>
+
+            <div className="p-3.5 rounded border border-[#bec8ce]/40 bg-[#f8fdff] flex flex-col gap-3">
+              <span className="text-xs font-semibold text-[#131d20]">Business Policy &amp; Guardrail Rules</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="font-label-code text-[10px] uppercase text-slate-500">Frequency Cap (Days)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="90"
+                    value={frequencyCapDays}
+                    onChange={(e) => setFrequencyCapDays(Math.max(0, Number(e.target.value)))}
+                    className="bg-white border border-[#bec8ce]/60 font-data-metric text-xs rounded p-1.5 focus:border-[#006481] text-[#131d20]"
+                    placeholder="0 (Disabled)"
+                  />
+                  <span className="text-[10px] text-slate-400">Holdout if recency &lt; N days</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="font-label-code text-[10px] uppercase text-slate-500">Min Margin Floor ($)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="0.5"
+                    value={minMarginFloor}
+                    onChange={(e) => setMinMarginFloor(Math.max(0, Number(e.target.value)))}
+                    className="bg-white border border-[#bec8ce]/60 font-data-metric text-xs rounded p-1.5 focus:border-[#006481] text-[#131d20]"
+                    placeholder="0.00"
+                  />
+                  <span className="text-[10px] text-slate-400">Only treat if profit &ge; $N</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600 font-medium text-[11px]">Max Treatment Population Cap</span>
+                  <span className="font-label-code font-bold text-[#006481]">{maxDiscountRate}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value={maxDiscountRate}
+                  onChange={(e) => setMaxDiscountRate(Number(e.target.value))}
+                  className="w-full accent-[#006481] h-1.5 rounded cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {liveAllocation?.policyMetrics && (
+              <div className="p-3 rounded border border-[#bec8ce]/50 bg-slate-50 flex flex-col gap-1 text-xs">
+                <span className="font-label-code text-[10px] uppercase font-bold text-[#006481]">Policy Exclusion Audit</span>
+                <div className="grid grid-cols-3 gap-1.5 font-label-code text-[11px] text-slate-600">
+                  <div>Freq: <span className="font-semibold text-[#131d20]">{liveAllocation.policyMetrics.excluded_by_frequency_cap ?? 0}</span></div>
+                  <div>Cohort: <span className="font-semibold text-[#131d20]">{liveAllocation.policyMetrics.excluded_by_cohort ?? 0}</span></div>
+                  <div>Floor: <span className="font-semibold text-[#131d20]">{liveAllocation.policyMetrics.excluded_by_margin_floor ?? 0}</span></div>
+                </div>
+              </div>
+            )}
 
             {}
             <div className="p-3.5 rounded border border-[#bec8ce]/40 bg-[#eaf5f9] flex flex-col gap-2">

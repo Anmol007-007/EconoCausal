@@ -61,6 +61,27 @@ def test_allocate_endpoint():
     assert data["budget_allocated"] <= 500.0
     assert "net_incremental_profit" in data
     assert "targeted_persuadables" in data
+    assert "policy_metrics" in data
+
+def test_allocate_endpoint_with_policy_rules():
+    response = client.post(
+        "/api/allocate",
+        json={
+            "total_budget": 500.0,
+            "unit_margin": 45.0,
+            "min_margin_floor": 2.0,
+            "frequency_cap_days": 14,
+            "cohort_whitelist": ["Bronze", "Silver"],
+            "max_discount_rate": 0.30,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "policy_metrics" in data
+    assert data["policy_metrics"]["min_margin_floor"] == 2.0
+    assert data["policy_metrics"]["frequency_cap_days"] == 14
+    assert data["policy_metrics"]["cohort_whitelist"] == ["Bronze", "Silver"]
+    assert data["policy_metrics"]["max_discount_rate"] == 0.30
 
 def test_diagnostics_endpoint():
     response = client.get("/api/diagnostics")

@@ -73,6 +73,10 @@ class AllocateRequest(BaseModel):
     total_budget: float = Field(default=5000.0, ge=100.0)
     unit_margin: float = Field(default=45.0, ge=1.0)
     max_arm_20: Optional[int] = None
+    min_margin_floor: float = Field(default=0.0, ge=0.0)
+    frequency_cap_days: Optional[int] = Field(default=None, ge=1)
+    cohort_whitelist: Optional[List[str]] = None
+    max_discount_rate: Optional[float] = Field(default=None, ge=0.01, le=1.0)
 
 class DriftRequest(BaseModel):
     baseline_id: Optional[str] = "default_retail"
@@ -209,6 +213,10 @@ def run_uplift_modeling(payload: Optional[UpliftRequest] = None) -> Dict[str, An
         "cv_folds": payload.cv,
         "ate_10": round(float(np.mean(u10)), 4),
         "ate_20": round(float(np.mean(u20)), 4),
+        "ate_10_ci": [round(float(np.mean(uplift_df["uplift_10_lb"])), 4), round(float(np.mean(uplift_df["uplift_10_ub"])), 4)],
+        "ate_20_ci": [round(float(np.mean(uplift_df["uplift_20_lb"])), 4), round(float(np.mean(uplift_df["uplift_20_ub"])), 4)],
+        "mean_se_10": round(float(np.mean(uplift_df["se_10"])), 4),
+        "mean_se_20": round(float(np.mean(uplift_df["se_20"])), 4),
         "pehe_rmse": pehe_val,
         "qini_score": qini_res["qini_score"],
         "qini_curve": qini_res,
@@ -237,6 +245,10 @@ def run_budget_allocation(payload: Optional[AllocateRequest] = None) -> Dict[str
         total_budget=payload.total_budget,
         unit_margin=payload.unit_margin,
         max_arm_20=payload.max_arm_20,
+        min_margin_floor=payload.min_margin_floor,
+        frequency_cap_days=payload.frequency_cap_days,
+        cohort_whitelist=payload.cohort_whitelist,
+        max_discount_rate=payload.max_discount_rate,
     )
     _STATE["allocation_results"] = res
     _STATE["summary_cache"] = None
@@ -256,6 +268,7 @@ def run_budget_allocation(payload: Optional[AllocateRequest] = None) -> Dict[str
         "alloc_10_count": res["alloc_10_count"],
         "alloc_20_count": res["alloc_20_count"],
         "quadrant_breakdown": quadrant_counts,
+        "policy_metrics": res["policy_metrics"],
     }
 
 @app.get("/diagnostics")

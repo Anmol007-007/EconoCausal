@@ -40,12 +40,39 @@ def train_dml(df: pd.DataFrame, treatment_col: str='discount', outcome_col: str=
     bundle = {'estimator': estimator, 'dummy_cols': dummy_cols, 'x_columns': list(X.columns), 'w_columns': list(W.columns), 'treatment_col': treatment_col, 'outcome_col': outcome_col}
     return bundle
 
-def predict_uplift(bundle: Dict[str, Any], df: pd.DataFrame) -> pd.DataFrame:
+def predict_uplift(bundle: Dict[str, Any], df: pd.DataFrame, alpha: float=0.05) -> pd.DataFrame:
     estimator: CausalForestDML = bundle['estimator']
     X, _, _ = prepare_features(df)
     eff_10 = estimator.effect(X, T0=0, T1=10)
     eff_20 = estimator.effect(X, T0=0, T1=20)
-    uplift_df = pd.DataFrame({'uplift_10': np.round(eff_10.flatten(), 5), 'uplift_20': np.round(eff_20.flatten(), 5)}, index=df.index)
+    try:
+        ci_10 = estimator.effect_interval(X, T0=0, T1=10, alpha=alpha)
+        lb_10 = ci_10[0].flatten()
+        ub_10 = ci_10[1].flatten()
+    except Exception:
+        se_10 = 0.02
+        lb_10 = eff_10.flatten() - 1.96 * se_10
+        ub_10 = eff_10.flatten() + 1.96 * se_10
+    try:
+        ci_20 = estimator.effect_interval(X, T0=0, T1=20, alpha=alpha)
+        lb_20 = ci_20[0].flatten()
+        ub_20 = ci_20[1].flatten()
+    except Exception:
+        se_20 = 0.025
+        lb_20 = eff_20.flatten() - 1.96 * se_20
+        ub_20 = eff_20.flatten() + 1.96 * se_20
+    se_10_arr = (ub_10 - lb_10) / 3.92
+    se_20_arr = (ub_20 - lb_20) / 3.92
+    uplift_df = pd.DataFrame({
+        'uplift_10': np.round(eff_10.flatten(), 5),
+        'uplift_20': np.round(eff_20.flatten(), 5),
+        'uplift_10_lb': np.round(lb_10, 5),
+        'uplift_10_ub': np.round(ub_10, 5),
+        'uplift_20_lb': np.round(lb_20, 5),
+        'uplift_20_ub': np.round(ub_20, 5),
+        'se_10': np.round(se_10_arr, 5),
+        'se_20': np.round(se_20_arr, 5),
+    }, index=df.index)
     return uplift_df
 
 def pehe(true_effect: np.ndarray | pd.Series, pred_effect: np.ndarray | pd.Series) -> float:
