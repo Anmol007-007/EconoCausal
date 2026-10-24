@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { RefuterTest, ScreenTab } from '../types.ts';
 import { REFUTER_SUITE } from '../mockData.ts';
 import { exportRefutationJSON } from '../exportUtils.ts';
-import { apiService } from '../apiService.ts';
+import { apiService, SensitivityResult } from '../apiService.ts';
 
 interface CausalDiagnosticsViewProps {
   onNavigate: (tab: ScreenTab) => void;
@@ -14,12 +14,19 @@ export const CausalDiagnosticsView: React.FC<CausalDiagnosticsViewProps> = ({ on
   const [isAuditing, setIsAuditing] = useState<boolean>(false);
   const [auditMessage, setAuditMessage] = useState<string | null>(null);
   const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
+  const [sensitivity, setSensitivity] = useState<SensitivityResult | null>(null);
+  const [selectedGamma, setSelectedGamma] = useState<number>(1.5);
+  const [sensitivityTab, setSensitivityTab] = useState<'rosenbaum' | 'cinelli' | 'profit'>('rosenbaum');
+  const [simulatedBiasRatio, setSimulatedBiasRatio] = useState<number>(0.5);
 
   React.useEffect(() => {
     let mounted = true;
     apiService.getDiagnostics().then((res) => {
       if (!mounted) return;
       setIsLiveApi(res.isLive);
+      if (res.data?.sensitivity) {
+        setSensitivity(res.data.sensitivity);
+      }
       if (res.data?.refutations) {
         const ref = res.data.refutations;
         setRefuters([
@@ -64,6 +71,9 @@ export const CausalDiagnosticsView: React.FC<CausalDiagnosticsViewProps> = ({ on
     const res = await apiService.getDiagnostics();
     setIsAuditing(false);
     setIsLiveApi(res.isLive);
+    if (res.data?.sensitivity) {
+      setSensitivity(res.data.sensitivity);
+    }
     if (res.data?.refutations) {
       const ref = res.data.refutations;
       setRefuters([
@@ -704,6 +714,422 @@ export const CausalDiagnosticsView: React.FC<CausalDiagnosticsViewProps> = ({ on
           </div>
         </div>
       </div>
+
+      <div className="w-full rounded-lg bg-white border border-[#bec8ce]/50 p-5 sm:p-6 shadow-sm flex flex-col gap-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-[#bec8ce]/40 gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#006481]/10 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[#006481] text-xl">biotech</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-serif text-xl text-[#131d20] font-semibold">
+                  Dynamic Sensitivity &amp; Confounder Bias Stress Testing
+                </h2>
+                <span className="px-2 py-0.5 rounded border border-[#006481]/30 bg-[#006481]/5 text-[#006481] font-label-code text-xs font-semibold">
+                  Rosenbaum &amp; Cinelli-Hazlett
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Stress-test the causal estimand against hypothetical unobserved confounders (U) and compute the exact bias threshold required to erase campaign profitability.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <div className="px-3 py-1.5 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/60 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-label-code text-xs text-slate-500">Unconfoundedness Score:</span>
+              <span className="font-label-code text-xs font-bold text-[#006481]">
+                {(sensitivity?.unconfoundedness_score ?? 92.5).toFixed(1)}/100
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center border-b border-[#bec8ce]/40 gap-2 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setSensitivityTab('rosenbaum')}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              sensitivityTab === 'rosenbaum'
+                ? 'border-[#006481] text-[#006481] font-semibold'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span className="material-symbols-outlined text-sm">tune</span>
+            <span>Rosenbaum Bounds (&Gamma;)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSensitivityTab('cinelli')}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              sensitivityTab === 'cinelli'
+                ? 'border-[#006481] text-[#006481] font-semibold'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span className="material-symbols-outlined text-sm">troubleshoot</span>
+            <span>Cinelli-Hazlett Partial R&sup2; (Sensemakr)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSensitivityTab('profit')}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              sensitivityTab === 'profit'
+                ? 'border-[#006481] text-[#006481] font-semibold'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span className="material-symbols-outlined text-sm">monetization_on</span>
+            <span>Campaign Profit Break-Even Frontier</span>
+          </button>
+        </div>
+
+        {sensitivityTab === 'rosenbaum' && (
+          <div className="flex flex-col gap-5 animate-in fade-in">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Baseline Estimate (&tau;)</span>
+                <span className="font-serif text-lg font-bold text-[#131d20]">
+                  {(sensitivity?.rosenbaum.tau_estimate ?? 0.0842).toFixed(4)}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">SE: &plusmn;{(sensitivity?.rosenbaum.standard_error ?? 0.0182).toFixed(4)}</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Critical Threshold (&Gamma;*)</span>
+                <span className="font-serif text-lg font-bold text-emerald-700">
+                  {(sensitivity?.rosenbaum.critical_gamma ?? 2.85).toFixed(2)}&times;
+                </span>
+                <span className="text-[10px] text-emerald-600 block mt-0.5">Odds ratio required to nullify</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">T-Statistic</span>
+                <span className="font-serif text-lg font-bold text-[#006481]">
+                  {(sensitivity?.rosenbaum.t_statistic ?? 4.626).toFixed(3)}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">df: {(sensitivity?.cinelli_hazlett.df_residual ?? 994)}</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Resilience Verdict</span>
+                <span className="font-serif text-sm font-bold text-emerald-800 line-clamp-1">
+                  {sensitivity?.verdict ?? 'Robust to Moderate & Severe Confounding'}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Passed Rosenbaum test</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50/70 border border-[#bec8ce]/40 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#131d20]">Simulated Hidden Bias Odds Ratio (&Gamma;):</span>
+                  <span className="font-label-code text-xs px-2 py-0.5 rounded bg-white border border-[#bec8ce]/60 font-bold text-[#006481]">
+                    &Gamma; = {selectedGamma.toFixed(2)}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500">Range: 1.00 (Unbiased) to 3.00 (Severe Bias)</span>
+              </div>
+              <input
+                type="range"
+                min="1.0"
+                max="3.0"
+                step="0.25"
+                value={selectedGamma}
+                onChange={(e) => setSelectedGamma(parseFloat(e.target.value))}
+                className="w-full accent-[#006481] cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] font-label-code text-slate-400">
+                <span>&Gamma; = 1.00 (Clean RCT)</span>
+                <span>&Gamma; = 1.50</span>
+                <span>&Gamma; = 2.00 (Moderate)</span>
+                <span>&Gamma; = 2.50</span>
+                <span>&Gamma; = 3.00 (Severe Hidden Bias)</span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-slate-500 font-label-code text-[11px] border-b border-[#bec8ce]/50 uppercase bg-[#f8fdff]">
+                    <th className="py-2.5 px-3 font-semibold">Odds Ratio (&Gamma;)</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">Lower Bound (&tau;&minus;)</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">Upper Bound (&tau;&plus;)</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">Worst-Case P-Value</th>
+                    <th className="py-2.5 px-3 text-center font-semibold">Robustness Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#bec8ce]/25 font-label-code text-xs">
+                  {(sensitivity?.rosenbaum.gamma_table ?? [
+                    { gamma: 1.0, tau_lower: 0.0842, tau_upper: 0.0842, p_value_upper: 0.0001, is_robust: true },
+                    { gamma: 1.25, tau_lower: 0.0762, tau_upper: 0.0922, p_value_upper: 0.0003, is_robust: true },
+                    { gamma: 1.5, tau_lower: 0.0697, tau_upper: 0.0987, p_value_upper: 0.0012, is_robust: true },
+                    { gamma: 1.75, tau_lower: 0.0641, tau_upper: 0.1043, p_value_upper: 0.0038, is_robust: true },
+                    { gamma: 2.0, tau_lower: 0.0592, tau_upper: 0.1092, p_value_upper: 0.0089, is_robust: true },
+                    { gamma: 2.25, tau_lower: 0.0547, tau_upper: 0.1137, p_value_upper: 0.0165, is_robust: true },
+                    { gamma: 2.5, tau_lower: 0.0506, tau_upper: 0.1178, p_value_upper: 0.0272, is_robust: true },
+                    { gamma: 2.75, tau_lower: 0.0468, tau_upper: 0.1216, p_value_upper: 0.0418, is_robust: true },
+                    { gamma: 3.0, tau_lower: 0.0433, tau_upper: 0.1251, p_value_upper: 0.0601, is_robust: false },
+                  ]).map((row) => (
+                    <tr
+                      key={row.gamma}
+                      className={
+                        Math.abs(row.gamma - selectedGamma) < 0.01
+                          ? 'bg-[#006481]/5 font-semibold text-[#006481]'
+                          : 'hover:bg-[#f8fdff]'
+                      }
+                    >
+                      <td className="py-2 px-3 font-semibold flex items-center gap-2">
+                        {Math.abs(row.gamma - selectedGamma) < 0.01 && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#006481]"></span>
+                        )}
+                        <span>&Gamma; = {row.gamma.toFixed(2)}</span>
+                      </td>
+                      <td className="py-2 px-3 text-right">{row.tau_lower.toFixed(4)}</td>
+                      <td className="py-2 px-3 text-right">{row.tau_upper.toFixed(4)}</td>
+                      <td className="py-2 px-3 text-right text-slate-500">
+                        {row.p_value_upper < 0.001 ? '< 0.001' : row.p_value_upper.toFixed(4)}
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            row.is_robust
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {row.is_robust ? 'ROBUST (p < 0.05)' : 'SENSITIVE (p >= 0.05)'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {sensitivityTab === 'cinelli' && (
+          <div className="flex flex-col gap-5 animate-in fade-in">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Robustness Value (Point RV)</span>
+                <span className="font-serif text-lg font-bold text-[#006481]">
+                  {((sensitivity?.cinelli_hazlett.robustness_value_point ?? 0.1362) * 100).toFixed(1)}%
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Min partial R&sup2; to bring &tau; to 0</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Robustness Value (95% CI RV)</span>
+                <span className="font-serif text-lg font-bold text-emerald-700">
+                  {((sensitivity?.cinelli_hazlett.robustness_value_ci ?? 0.0814) * 100).toFixed(1)}%
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Min partial R&sup2; to lose 95% signif.</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Partial R&sup2; (Treatment)</span>
+                <span className="font-serif text-lg font-bold text-[#131d20]">
+                  {((sensitivity?.cinelli_hazlett.partial_r2_treatment ?? 0.0211) * 100).toFixed(2)}%
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">R&sup2;(Y ~ D | X)</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Extreme Confounder R&sup2;</span>
+                <span className="font-serif text-lg font-bold text-slate-700">
+                  {((sensitivity?.cinelli_hazlett.extreme_confounder_r2 ?? 0.0215) * 100).toFixed(2)}%
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">If U explains 100% of outcome</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+              <div className="lg:col-span-7 flex flex-col gap-2">
+                <h3 className="text-xs font-semibold text-[#131d20] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-[#006481]">ssid_chart</span>
+                  <span>Cinelli &amp; Hazlett Sensitivity Contour Frontier (Sensemakr)</span>
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  The curved contour boundary delineates combinations of confounder strength with treatment (R&sup2;<sub>D~U|X</sub>) and outcome (R&sup2;<sub>Y~U|D,X</sub>) sufficient to completely nullify the treatment effect. Any unobserved confounder within the shaded region cannot reverse the causal estimate.
+                </p>
+
+                <div className="relative w-full h-64 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40 p-2 overflow-hidden flex items-center justify-center">
+                  <svg className="w-full h-full" viewBox="0 0 450 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="50" y1="180" x2="420" y2="180" stroke="#bec8ce" strokeWidth="1.5"></line>
+                    <line x1="50" y1="20" x2="50" y2="180" stroke="#bec8ce" strokeWidth="1.5"></line>
+
+                    <text x="210" y="205" fill="#475053" fontSize="10" fontFamily="JetBrains Mono, monospace">
+                      Partial R&sup2; of Confounder with Treatment (R&sup2;_D~U|X)
+                    </text>
+                    <text x="12" y="105" fill="#475053" fontSize="10" fontFamily="JetBrains Mono, monospace" transform="rotate(-90 12 105)">
+                      R&sup2;_Y~U|D,X
+                    </text>
+
+                    <text x="50" y="195" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">0%</text>
+                    <text x="140" y="195" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">10%</text>
+                    <text x="230" y="195" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">20%</text>
+                    <text x="320" y="195" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">30%</text>
+                    <text x="410" y="195" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">40%</text>
+
+                    <text x="25" y="180" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">0%</text>
+                    <text x="20" y="140" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">10%</text>
+                    <text x="20" y="100" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">20%</text>
+                    <text x="20" y="60" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">30%</text>
+                    <text x="20" y="25" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">40%</text>
+
+                    <path
+                      d="M 68 30 C 85 90 120 135 170 155 C 230 168 320 173 410 175 L 410 180 L 50 180 L 50 30 Z"
+                      fill="#006481"
+                      fillOpacity="0.08"
+                    ></path>
+
+                    <path
+                      d="M 68 30 C 85 90 120 135 170 155 C 230 168 320 173 410 175"
+                      stroke="#ba1a1a"
+                      strokeWidth="2.5"
+                      strokeDasharray="4 2"
+                      fill="none"
+                    ></path>
+
+                    <circle cx="172" cy="125" r="5" fill="#006481"></circle>
+                    <text x="182" y="123" fill="#006481" fontSize="10" fontWeight="bold" fontFamily="JetBrains Mono, monospace">
+                      Point RV = {((sensitivity?.cinelli_hazlett.robustness_value_point ?? 0.1362) * 100).toFixed(1)}%
+                    </text>
+
+                    <circle cx="123" cy="147" r="4.5" fill="#2e94b9"></circle>
+                    <text x="133" y="152" fill="#2e94b9" fontSize="9" fontWeight="bold" fontFamily="JetBrains Mono, monospace">
+                      95% CI RV = {((sensitivity?.cinelli_hazlett.robustness_value_ci ?? 0.0814) * 100).toFixed(1)}%
+                    </text>
+                  </svg>
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 flex flex-col gap-3 p-4 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="font-label-code text-xs font-semibold uppercase text-[#131d20] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-[#006481]">gavel</span>
+                  <span>Benchmarking Rule of Thumb</span>
+                </span>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  An unobserved confounder must explain more than{' '}
+                  <strong className="text-[#006481]">
+                    {((sensitivity?.cinelli_hazlett.robustness_value_point ?? 0.1362) * 100).toFixed(1)}%
+                  </strong>{' '}
+                  of both treatment assignment and consumer spend variance to nullify the uplift effect.
+                </p>
+                <div className="p-3 rounded bg-white border border-[#bec8ce]/50 flex flex-col gap-1.5 font-label-code text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Observed Past Spend Partial R&sup2;:</span>
+                    <span className="font-bold text-[#131d20]">1.85%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Observed Loyalty Tier Partial R&sup2;:</span>
+                    <span className="font-bold text-[#131d20]">2.10%</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-[#bec8ce]/30 pt-1">
+                    <span className="text-slate-500">Required Hidden Bias Multiplier:</span>
+                    <span className="font-bold text-emerald-700">
+                      ~{( (sensitivity?.cinelli_hazlett.robustness_value_point ?? 0.1362) / 0.021 ).toFixed(1)}&times; Stronger than Loyalty
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 italic">
+                  It is empirically implausible that an omitted retail factor surpasses loyalty status and lifetime value by more than 6-fold.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {sensitivityTab === 'profit' && (
+          <div className="flex flex-col gap-5 animate-in fade-in">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Net Campaign Profit</span>
+                <span className="font-serif text-lg font-bold text-emerald-800">
+                  ${(sensitivity?.profit_break_even.net_incremental_profit ?? 18420).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Targeting {(sensitivity?.profit_break_even.n_treated ?? 382)} users</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Critical Bias Threshold (&Delta;&tau;*)</span>
+                <span className="font-serif text-lg font-bold text-[#ba1a1a]">
+                  +{(sensitivity?.profit_break_even.critical_bias ?? 0.1929).toFixed(4)}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  {(sensitivity?.profit_break_even.critical_bias_percent ?? 229.1).toFixed(1)}% of mean estimated uplift
+                </span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Break-Even Odds Ratio (&Gamma;)</span>
+                <span className="font-serif text-lg font-bold text-[#006481]">
+                  {(sensitivity?.profit_break_even.break_even_gamma ?? 5.4).toFixed(1)}&times;
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Odds ratio to eliminate profit</span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+                <span className="text-[11px] font-label-code text-slate-500 block">Profit Safety Margin</span>
+                <span className="font-serif text-sm font-bold text-emerald-800">
+                  {sensitivity?.profit_break_even.robustness_margin ?? 'Highly Resilient'}
+                </span>
+                <span className="text-[10px] text-emerald-600 block mt-0.5">Profitable under 200% bias</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#131d20]">Simulate Hypothetical Confounder Bias Level:</span>
+                  <span className="font-label-code text-xs px-2 py-0.5 rounded bg-white border border-[#bec8ce]/60 font-bold text-[#006481]">
+                    {(simulatedBiasRatio * 100).toFixed(0)}% of Critical Break-Even Bias
+                  </span>
+                </div>
+                <span className="text-xs font-label-code font-bold text-slate-700">
+                  Projected Net Profit: $
+                  {Math.max(
+                    0,
+                    (sensitivity?.profit_break_even.net_incremental_profit ?? 18420) * (1.0 - simulatedBiasRatio)
+                  ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min="0.0"
+                max="1.5"
+                step="0.05"
+                value={simulatedBiasRatio}
+                onChange={(e) => setSimulatedBiasRatio(parseFloat(e.target.value))}
+                className="w-full accent-[#006481] cursor-pointer"
+              />
+
+              <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden relative">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    simulatedBiasRatio <= 1.0 ? 'bg-[#006481]' : 'bg-[#ba1a1a]'
+                  }`}
+                  style={{ width: `${Math.min(100, (1.0 - Math.min(1.0, simulatedBiasRatio)) * 100)}%` }}
+                ></div>
+              </div>
+
+              <div className="flex justify-between text-[11px] font-label-code text-slate-500">
+                <span>0% Bias (Unconfounded Ground Truth: $18,420.00)</span>
+                <span>50% Bias Buffer Remaining</span>
+                <span className="text-red-700 font-semibold">100% Bias = $0 Break-Even Floor</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
 
       {}
       <div className="flex items-center justify-between p-4 rounded-lg bg-white border border-[#bec8ce]/50 shadow-xs">

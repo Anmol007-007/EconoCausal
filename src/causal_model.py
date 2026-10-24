@@ -6,6 +6,7 @@ from dowhy import CausalModel
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
+import scipy.stats as st
 
 CONFOUNDERS: List[str] = ['past_spend', 'recency_days', 'loyalty_tier', 'category_affinity']
 DEFAULT_CONFOUNDERS: List[str] = ['past_spend', 'recency_days', 'loyalty_tier', 'category_affinity']
@@ -167,3 +168,148 @@ def run_all_refutations(model: CausalModel, estimand: Any, estimate: Any, random
     res_subset = refute_data_subset(model, estimand, estimate, random_state=random_state)
     all_passed = res_placebo['passed'] and res_common_cause['passed'] and res_subset['passed']
     return {'placebo': res_placebo, 'random_common_cause': res_common_cause, 'data_subset': res_subset, 'all_passed': all_passed}
+
+def _extract_regression_matrices(df: pd.DataFrame, treatment_col: str, outcome_col: str, confounders: List[str]) -> Tuple[float, float, float, int]:
+    d = (df[treatment_col] > 0).astype(float).values
+    y = df[outcome_col].values.astype(float)
+    x_parts = []
+    for c in confounders:
+        if c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'category':
+                x_parts.append(pd.get_dummies(df[c], drop_first=True).values.astype(float))
+            else:
+                x_parts.append(df[c].values.astype(float).reshape(-1, 1))
+    if len(x_parts) > 0:
+        X = np.hstack(x_parts)
+    else:
+        X = np.zeros((len(df), 0))
+    X_full = np.column_stack([d, X, np.ones(len(df))])
+    beta, _, _, _ = np.linalg.lstsq(X_full, y, rcond=None)
+    tau_hat = float(beta[0])
+    n = len(df)
+    k = X.shape[1] + 1
+    df_resid = max(1, n - k - 1)
+    y_pred = X_full @ beta
+    mse = np.sum((y - y_pred) ** 2) / df_resid
+    cov = mse * np.linalg.pinv(X_full.T @ X_full)
+    se_tau = float(np.sqrt(max(1e-12, cov[0, 0])))
+    t_stat = tau_hat / se_tau
+    return (tau_hat, se_tau, t_stat, df_resid)
+
+def compute_rosenbaum_bounds(df: pd.DataFrame, treatment_col: str = 'discount', outcome_col: str = 'purchase', confounders: Optional[List[str]] = None, gamma_values: Optional[List[float]] = None) -> Dict[str, Any]:
+    if confounders is None:
+        confounders = list(DEFAULT_CONFOUNDERS)
+    if gamma_values is None:
+        gamma_values = [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]
+    tau_hat, se_tau, t_stat, df_resid = _extract_regression_matrices(df, treatment_col, outcome_col, confounders)
+    u = max(0.0, t_stat / 1.96)
+    crit_gamma = float(((u + np.sqrt(u ** 2 + 4.0)) / 2.0) ** 2)
+    gamma_table = []
+    for g in gamma_values:
+        max_bias = se_tau * 1.96 * ((g - 1.0) / np.sqrt(max(1e-06, g)))
+        tau_lower = float(tau_hat - max_bias)
+        tau_upper = float(tau_hat + max_bias)
+        z_gamma = (tau_hat - max_bias) / max(1e-12, se_tau)
+        p_val_upper = float(1.0 - st.norm.cdf(z_gamma)) if tau_hat >= 0 else float(st.norm.cdf(z_gamma))
+        is_robust = bool(tau_lower > 0 and p_val_upper < 0.05)
+        gamma_table.append({
+            'gamma': round(float(g), 2),
+            'tau_lower': round(tau_lower, 4),
+            'tau_upper': round(tau_upper, 4),
+            'p_value_upper': round(p_val_upper, 4),
+            'is_robust': is_robust
+        })
+    return {
+        'tau_estimate': round(tau_hat, 4),
+        'standard_error': round(se_tau, 4),
+        't_statistic': round(t_stat, 3),
+        'critical_gamma': round(crit_gamma, 2),
+        'gamma_table': gamma_table
+    }
+
+def compute_cinelli_hazlett_robustness(df: pd.DataFrame, treatment_col: str = 'discount', outcome_col: str = 'purchase', confounders: Optional[List[str]] = None, alpha: float = 0.05) -> Dict[str, Any]:
+    if confounders is None:
+        confounders = list(DEFAULT_CONFOUNDERS)
+    tau_hat, se_tau, t_stat, df_resid = _extract_regression_matrices(df, treatment_col, outcome_col, confounders)
+    partial_r2 = float((t_stat ** 2) / (t_stat ** 2 + df_resid))
+    f_q = abs(t_stat) / np.sqrt(df_resid)
+    rv_point = float(0.5 * (np.sqrt(f_q ** 4 + 4.0 * f_q ** 2) - f_q ** 2))
+    t_crit = float(st.t.ppf(1.0 - alpha / 2.0, df=df_resid))
+    if abs(t_stat) > t_crit:
+        f_alpha = (abs(t_stat) - t_crit) / np.sqrt(df_resid)
+        rv_ci = float(0.5 * (np.sqrt(f_alpha ** 4 + 4.0 * f_alpha ** 2) - f_alpha ** 2))
+    else:
+        rv_ci = 0.0
+    extreme_r2 = float(partial_r2 / max(1e-06, 1.0 - partial_r2))
+    contour_points = []
+    r2_grid = [0.02, 0.05, 0.08, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5]
+    for r2d in r2_grid:
+        if r2d < 1.0:
+            r2y = float((f_q ** 2) * (1.0 - r2d) / max(1e-06, r2d))
+            if r2y <= 1.0:
+                contour_points.append({'r2_treatment': round(r2d, 3), 'r2_outcome': round(r2y, 3)})
+    return {
+        'tau_estimate': round(tau_hat, 4),
+        'standard_error': round(se_tau, 4),
+        't_statistic': round(t_stat, 3),
+        'df_residual': int(df_resid),
+        'partial_r2_treatment': round(partial_r2, 4),
+        'robustness_value_point': round(rv_point, 4),
+        'robustness_value_ci': round(rv_ci, 4),
+        'extreme_confounder_r2': round(extreme_r2, 4),
+        'contour_points': contour_points
+    }
+
+def compute_break_even_profit_sensitivity(net_profit: float, unit_margin: float, n_treated: int, mean_tau: float, se_tau: float, df_resid: int) -> Dict[str, Any]:
+    safe_treated = max(1, n_treated)
+    safe_margin = max(1.0, unit_margin)
+    crit_bias = float(max(0.0, net_profit) / (safe_margin * safe_treated))
+    mean_tau_safe = max(1e-04, abs(mean_tau))
+    crit_bias_pct = float(round((crit_bias / mean_tau_safe) * 100.0, 2))
+    u_profit = max(0.0, crit_bias / max(1e-06, se_tau * 1.96))
+    be_gamma = float(((u_profit + np.sqrt(u_profit ** 2 + 4.0)) / 2.0) ** 2)
+    q_profit = crit_bias / mean_tau_safe
+    f_p = q_profit * abs(mean_tau) / (max(1e-06, se_tau) * np.sqrt(df_resid))
+    be_rv = float(0.5 * (np.sqrt(f_p ** 4 + 4.0 * f_p ** 2) - f_p ** 2))
+    if crit_bias_pct > 75.0:
+        margin_label = 'Highly Resilient'
+    elif crit_bias_pct > 35.0:
+        margin_label = 'Resilient'
+    else:
+        margin_label = 'Sensitive'
+    return {
+        'net_incremental_profit': round(net_profit, 2),
+        'unit_margin': round(unit_margin, 2),
+        'n_treated': int(n_treated),
+        'critical_bias': round(crit_bias, 4),
+        'critical_bias_percent': crit_bias_pct,
+        'break_even_gamma': round(be_gamma, 2),
+        'break_even_rv': round(be_rv, 4),
+        'robustness_margin': margin_label,
+        'is_profitable_under_2x_bias': bool(crit_bias > (mean_tau * 0.5))
+    }
+
+def compute_sensitivity_suite(df: pd.DataFrame, treatment_col: str = 'discount', outcome_col: str = 'purchase', confounders: Optional[List[str]] = None, net_profit: Optional[float] = None, unit_margin: float = 25.0, n_treated: Optional[int] = None) -> Dict[str, Any]:
+    if confounders is None:
+        confounders = list(DEFAULT_CONFOUNDERS)
+    rosen = compute_rosenbaum_bounds(df, treatment_col=treatment_col, outcome_col=outcome_col, confounders=confounders)
+    cinelli = compute_cinelli_hazlett_robustness(df, treatment_col=treatment_col, outcome_col=outcome_col, confounders=confounders)
+    tau_hat = rosen['tau_estimate']
+    se_tau = rosen['standard_error']
+    df_resid = cinelli['df_residual']
+    if net_profit is None:
+        n_t = int((df[treatment_col] > 0).sum()) if treatment_col in df.columns else len(df) // 2
+        net_profit = float(max(100.0, n_t * tau_hat * unit_margin * 0.8))
+        n_treated = n_t
+    elif n_treated is None:
+        n_treated = int((df[treatment_col] > 0).sum()) if treatment_col in df.columns else len(df) // 2
+    profit_sens = compute_break_even_profit_sensitivity(net_profit, unit_margin, n_treated, tau_hat, se_tau, df_resid)
+    unconfoundedness_score = float(np.clip((rosen['critical_gamma'] / 3.0) * 50.0 + (cinelli['robustness_value_point'] / 0.2) * 50.0, 10.0, 99.0))
+    verdict = 'Robust to Moderate & Severe Unobserved Confounding' if rosen['critical_gamma'] >= 2.0 else 'Susceptible to Unobserved Confounders'
+    return {
+        'rosenbaum': rosen,
+        'cinelli_hazlett': cinelli,
+        'profit_break_even': profit_sens,
+        'unconfoundedness_score': round(unconfoundedness_score, 1),
+        'verdict': verdict
+    }

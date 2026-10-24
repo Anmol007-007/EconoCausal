@@ -91,6 +91,18 @@ def test_diagnostics_endpoint():
     assert "estimand_backdoor_variables" in data
     assert "overlap_report" in data
     assert "refutations" in data
+    assert "sensitivity" in data
+
+def test_sensitivity_endpoint():
+    response = client.get("/api/sensitivity")
+    assert response.status_code == 200
+    data = response.json()
+    assert "rosenbaum" in data
+    assert "cinelli_hazlett" in data
+    assert "profit_break_even" in data
+    assert "unconfoundedness_score" in data
+    assert data["rosenbaum"]["critical_gamma"] >= 1.0
+
 
 def test_drift_endpoint():
     response = client.post("/api/drift", json={"psi_threshold": 0.20})

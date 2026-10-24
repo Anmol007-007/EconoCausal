@@ -63,6 +63,49 @@ export interface AllocationResult {
   };
 }
 
+export interface SensitivityResult {
+  rosenbaum: {
+    tau_estimate: number;
+    standard_error: number;
+    t_statistic: number;
+    critical_gamma: number;
+    gamma_table: Array<{
+      gamma: number;
+      tau_lower: number;
+      tau_upper: number;
+      p_value_upper: number;
+      is_robust: boolean;
+    }>;
+  };
+  cinelli_hazlett: {
+    tau_estimate: number;
+    standard_error: number;
+    t_statistic: number;
+    df_residual: number;
+    partial_r2_treatment: number;
+    robustness_value_point: number;
+    robustness_value_ci: number;
+    extreme_confounder_r2: number;
+    contour_points: Array<{
+      r2_treatment: number;
+      r2_outcome: number;
+    }>;
+  };
+  profit_break_even: {
+    net_incremental_profit: number;
+    unit_margin: number;
+    n_treated: number;
+    critical_bias: number;
+    critical_bias_percent: number;
+    break_even_gamma: number;
+    break_even_rv: number;
+    robustness_margin: string;
+    is_profitable_under_2x_bias: boolean;
+  };
+  unconfoundedness_score: number;
+  verdict: string;
+}
+
 export interface DiagnosticsResult {
   dag_dot: string;
   estimand_backdoor_variables: string[];
@@ -74,6 +117,7 @@ export interface DiagnosticsResult {
     data_subset: { test: string; original_effect: number; new_effect: number; drift_percent: number; passed: boolean };
     all_passed: boolean;
   };
+  sensitivity?: SensitivityResult;
 }
 
 export interface DriftResult {
@@ -390,9 +434,99 @@ export const apiService = {
         data_subset: { test: 'data_subset', original_effect: 0.084, new_effect: 0.0835, drift_percent: 0.59, passed: true },
         all_passed: true,
       },
+      sensitivity: {
+        rosenbaum: {
+          tau_estimate: 0.0842,
+          standard_error: 0.0182,
+          t_statistic: 4.626,
+          critical_gamma: 2.85,
+          gamma_table: [
+            { gamma: 1.0, tau_lower: 0.0842, tau_upper: 0.0842, p_value_upper: 0.0001, is_robust: true },
+            { gamma: 1.25, tau_lower: 0.0762, tau_upper: 0.0922, p_value_upper: 0.0003, is_robust: true },
+            { gamma: 1.5, tau_lower: 0.0697, tau_upper: 0.0987, p_value_upper: 0.0012, is_robust: true },
+            { gamma: 1.75, tau_lower: 0.0641, tau_upper: 0.1043, p_value_upper: 0.0038, is_robust: true },
+            { gamma: 2.0, tau_lower: 0.0592, tau_upper: 0.1092, p_value_upper: 0.0089, is_robust: true },
+            { gamma: 2.25, tau_lower: 0.0547, tau_upper: 0.1137, p_value_upper: 0.0165, is_robust: true },
+            { gamma: 2.5, tau_lower: 0.0506, tau_upper: 0.1178, p_value_upper: 0.0272, is_robust: true },
+            { gamma: 2.75, tau_lower: 0.0468, tau_upper: 0.1216, p_value_upper: 0.0418, is_robust: true },
+            { gamma: 3.0, tau_lower: 0.0433, tau_upper: 0.1251, p_value_upper: 0.0601, is_robust: false },
+          ],
+        },
+        cinelli_hazlett: {
+          tau_estimate: 0.0842,
+          standard_error: 0.0182,
+          t_statistic: 4.626,
+          df_residual: 994,
+          partial_r2_treatment: 0.0211,
+          robustness_value_point: 0.1362,
+          robustness_value_ci: 0.0814,
+          extreme_confounder_r2: 0.0215,
+          contour_points: [
+            { r2_treatment: 0.02, r2_outcome: 0.98 },
+            { r2_treatment: 0.05, r2_outcome: 0.38 },
+            { r2_treatment: 0.08, r2_outcome: 0.23 },
+            { r2_treatment: 0.1, r2_outcome: 0.18 },
+            { r2_treatment: 0.15, r2_outcome: 0.11 },
+            { r2_treatment: 0.2, r2_outcome: 0.08 },
+            { r2_treatment: 0.25, r2_outcome: 0.06 },
+            { r2_treatment: 0.3, r2_outcome: 0.045 },
+          ],
+        },
+        profit_break_even: {
+          net_incremental_profit: 18420.0,
+          unit_margin: 25.0,
+          n_treated: 382,
+          critical_bias: 0.1929,
+          critical_bias_percent: 229.1,
+          break_even_gamma: 5.4,
+          break_even_rv: 0.285,
+          robustness_margin: 'Highly Resilient',
+          is_profitable_under_2x_bias: true,
+        },
+        unconfoundedness_score: 92.5,
+        verdict: 'Robust to Moderate & Severe Unobserved Confounding',
+      },
     };
 
     return requestWithFallback('/api/diagnostics', { method: 'GET' }, fallback);
+  },
+
+  async getSensitivity(): Promise<ApiResponse<SensitivityResult>> {
+    const diag = await this.getDiagnostics();
+    const fallback: SensitivityResult = diag.data.sensitivity ?? {
+      rosenbaum: {
+        tau_estimate: 0.0842,
+        standard_error: 0.0182,
+        t_statistic: 4.626,
+        critical_gamma: 2.85,
+        gamma_table: [],
+      },
+      cinelli_hazlett: {
+        tau_estimate: 0.0842,
+        standard_error: 0.0182,
+        t_statistic: 4.626,
+        df_residual: 994,
+        partial_r2_treatment: 0.0211,
+        robustness_value_point: 0.1362,
+        robustness_value_ci: 0.0814,
+        extreme_confounder_r2: 0.0215,
+        contour_points: [],
+      },
+      profit_break_even: {
+        net_incremental_profit: 18420.0,
+        unit_margin: 25.0,
+        n_treated: 382,
+        critical_bias: 0.1929,
+        critical_bias_percent: 229.1,
+        break_even_gamma: 5.4,
+        break_even_rv: 0.285,
+        robustness_margin: 'Highly Resilient',
+        is_profitable_under_2x_bias: true,
+      },
+      unconfoundedness_score: 92.5,
+      verdict: 'Robust to Moderate & Severe Unobserved Confounding',
+    };
+    return requestWithFallback('/api/sensitivity', { method: 'GET' }, fallback);
   },
 
   async checkDrift(params?: { psi_threshold?: number }): Promise<ApiResponse<DriftResult>> {

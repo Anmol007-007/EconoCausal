@@ -22,6 +22,7 @@ from src.causal_model import (
     overlap_report,
     balance_table,
     run_all_refutations,
+    compute_sensitivity_suite,
     CONFOUNDERS,
 )
 from src.dml import (
@@ -297,9 +298,19 @@ def get_causal_diagnostics() -> Dict[str, Any]:
         "overlap_report": overlap,
         "balance_table": balance.to_dict(orient="records"),
         "refutations": refutations,
+        "sensitivity": compute_sensitivity_suite(sample_df, treatment_col="discount", outcome_col="purchase", confounders=CONFOUNDERS),
     }
     _STATE["diagnostics_cache"] = diagnostics
     return diagnostics
+
+@app.get("/sensitivity")
+@app.get("/api/sensitivity")
+def get_sensitivity() -> Dict[str, Any]:
+    df = _get_active_df()
+    sample_df = df.head(500).copy()
+    net_profit = _STATE["allocation_results"]["net_incremental_profit"] if _STATE["allocation_results"] is not None else None
+    n_treated = int(_STATE["allocation_results"]["alloc_10_count"] + _STATE["allocation_results"]["alloc_20_count"]) if _STATE["allocation_results"] is not None else None
+    return compute_sensitivity_suite(sample_df, treatment_col="discount", outcome_col="purchase", confounders=CONFOUNDERS, net_profit=net_profit, n_treated=n_treated)
 
 @app.post("/drift")
 @app.post("/api/drift")

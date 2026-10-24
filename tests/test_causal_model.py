@@ -14,6 +14,10 @@ from src.causal_model import (
     refute_random_common_cause,
     refute_data_subset,
     run_all_refutations,
+    compute_rosenbaum_bounds,
+    compute_cinelli_hazlett_robustness,
+    compute_break_even_profit_sensitivity,
+    compute_sensitivity_suite,
 )
 
 def test_build_dag_and_structure():
@@ -110,3 +114,54 @@ def test_run_all_refutations(causal_setup):
     assert "random_common_cause" in res
     assert "data_subset" in res
     assert "all_passed" in res
+
+def test_compute_rosenbaum_bounds():
+    df = generate_data(n=500, seed=42)
+    res = compute_rosenbaum_bounds(df, treatment_col='discount', outcome_col='purchase')
+    assert "tau_estimate" in res
+    assert "standard_error" in res
+    assert "t_statistic" in res
+    assert "critical_gamma" in res
+    assert res["critical_gamma"] >= 1.0
+    assert len(res["gamma_table"]) > 0
+    row_1 = res["gamma_table"][0]
+    assert row_1["gamma"] == 1.0
+    assert row_1["is_robust"] is True
+    assert row_1["tau_lower"] <= row_1["tau_upper"]
+
+def test_compute_cinelli_hazlett_robustness():
+    df = generate_data(n=500, seed=42)
+    res = compute_cinelli_hazlett_robustness(df, treatment_col='discount', outcome_col='purchase')
+    assert "robustness_value_point" in res
+    assert "robustness_value_ci" in res
+    assert "partial_r2_treatment" in res
+    assert "contour_points" in res
+    assert 0.0 <= res["robustness_value_point"] <= 1.0
+    assert 0.0 <= res["robustness_value_ci"] <= 1.0
+    assert len(res["contour_points"]) > 0
+
+def test_compute_break_even_profit_sensitivity():
+    res = compute_break_even_profit_sensitivity(
+        net_profit=15000.0,
+        unit_margin=25.0,
+        n_treated=300,
+        mean_tau=0.08,
+        se_tau=0.02,
+        df_resid=500
+    )
+    assert res["critical_bias"] > 0
+    assert res["critical_bias_percent"] > 0
+    assert res["break_even_gamma"] >= 1.0
+    assert res["break_even_rv"] >= 0.0
+    assert res["robustness_margin"] in ["Highly Resilient", "Resilient", "Sensitive"]
+
+def test_compute_sensitivity_suite():
+    df = generate_data(n=300, seed=42)
+    res = compute_sensitivity_suite(df, treatment_col='discount', outcome_col='purchase')
+    assert "rosenbaum" in res
+    assert "cinelli_hazlett" in res
+    assert "profit_break_even" in res
+    assert "unconfoundedness_score" in res
+    assert "verdict" in res
+    assert 0.0 <= res["unconfoundedness_score"] <= 100.0
+
