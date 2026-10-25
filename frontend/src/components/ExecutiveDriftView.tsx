@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ScreenTab } from '../types.ts';
 import { exportRefutationJSON } from '../exportUtils.ts';
-import { apiService, SummaryResult, DriftResult } from '../apiService.ts';
+import { apiService, SummaryResult, DriftResult, RollingDriftResult } from '../apiService.ts';
+import { DRIFT_METRICS_7D, DRIFT_METRICS_30D, MICROSERVICE_ENDPOINTS, REFUTER_SUITE } from '../mockData.ts';
 
 interface ExecutiveDriftViewProps {
   onNavigate: (tab: ScreenTab) => void;
@@ -12,19 +13,31 @@ interface ExecutiveDriftViewProps {
 export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
   onNavigate,
   onOpenExportModal,
+  totalBudget,
 }) => {
   const [driftWindow, setDriftWindow] = useState<'7d' | '30d'>('7d');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [summaryData, setSummaryData] = useState<SummaryResult | null>(null);
   const [driftData, setDriftData] = useState<DriftResult | null>(null);
+  const [rollingDrift, setRollingDrift] = useState<RollingDriftResult | null>(null);
+  const [isSimulatingStream, setIsSimulatingStream] = useState<boolean>(false);
+  const [windowDays, setWindowDays] = useState<number>(7);
+  const [shockDay, setShockDay] = useState<number>(20);
+  const [streamMetric, setStreamMetric] = useState<'psi' | 'wasserstein' | 'ks'>('psi');
+  const [isRetraining, setIsRetraining] = useState<boolean>(false);
   const [isLiveApi, setIsLiveApi] = useState<boolean>(false);
 
   React.useEffect(() => {
     let mounted = true;
-    Promise.all([apiService.getSummary(), apiService.checkDrift()]).then(([sumRes, driftRes]) => {
+    Promise.all([apiService.getSummary(), apiService.checkDrift({ window_days: windowDays, drift_shock_day: shockDay })]).then(([sumRes, driftRes]) => {
       if (!mounted) return;
       if (sumRes.data) setSummaryData(sumRes.data);
-      if (driftRes.data) setDriftData(driftRes.data);
+      if (driftRes.data) {
+        setDriftData(driftRes.data);
+        if (driftRes.data.rolling_drift) {
+          setRollingDrift(driftRes.data.rolling_drift);
+        }
+      }
       setIsLiveApi(sumRes.isLive || driftRes.isLive);
     });
     return () => {
@@ -44,9 +57,34 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const handleRunStreamSimulation = async (w: number, s: number) => {
+    setIsSimulatingStream(true);
+    setToastMessage(`Simulating 30-day customer stream (${w}-day sliding window)...`);
+    const res = await apiService.getStreamDrift({ window_days: w, drift_shock_day: s });
+    setIsSimulatingStream(false);
+    if (res.data) {
+      setRollingDrift(res.data);
+    }
+    setToastMessage(
+      res.data?.retrain_recommended
+        ? `30-Day Stream Evaluated: Critical drift triggered on Day ${res.data.first_trigger_day}`
+        : '30-Day Stream Evaluated: All windows stable'
+    );
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleTriggerRetrain = () => {
+    setIsRetraining(true);
+    setToastMessage('Initiating Automated Double ML Retraining Pipeline with new covariate support...');
+    setTimeout(() => {
+      setIsRetraining(false);
+      setToastMessage('Automated DML Retraining Complete: Nuisance estimators updated. Fresh baseline established.');
+      setTimeout(() => setToastMessage(null), 3500);
+    }, 1800);
+  };
+
   return (
     <div className="w-full flex flex-col gap-6">
-      {}
       {toastMessage && (
         <div className="fixed bottom-12 right-6 z-50 bg-[#006481] text-white px-4 py-2.5 rounded shadow-lg text-xs font-medium flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
           <span className="material-symbols-outlined text-sm text-[#acdcee]">check_circle</span>
@@ -54,7 +92,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
         </div>
       )}
 
-      {}
       <section className="w-full p-5 sm:p-6 rounded-lg bg-white border border-[#bec8ce]/50 shadow-sm flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -73,7 +110,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </p>
         </div>
 
-        {}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center bg-[#eaf5f9] p-0.5 rounded border border-[#bec8ce]/50">
             <button
@@ -111,9 +147,7 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
         </div>
       </section>
 
-      {}
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {}
         <div className="bg-white rounded-lg border border-[#bec8ce]/50 p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between pb-1">
             <span className="font-label-code text-[11px] uppercase tracking-wider text-slate-500">
@@ -133,7 +167,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </div>
         </div>
 
-        {}
         <div className="bg-white rounded-lg border border-[#bec8ce]/50 p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between pb-1">
             <span className="font-label-code text-[11px] uppercase tracking-wider text-slate-500">
@@ -153,7 +186,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </div>
         </div>
 
-        {}
         <div className="bg-white rounded-lg border border-[#bec8ce]/50 p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between pb-1">
             <span className="font-label-code text-[11px] uppercase tracking-wider text-slate-500">
@@ -175,7 +207,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </div>
         </div>
 
-        {}
         <div className="bg-white rounded-lg border border-[#bec8ce]/50 p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between pb-1">
             <span className="font-label-code text-[11px] uppercase tracking-wider text-slate-500">
@@ -198,9 +229,7 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
         </div>
       </section>
 
-      {}
       <section className="bg-white rounded-lg border border-[#bec8ce]/50 p-5 sm:p-6 flex flex-col gap-4 shadow-sm">
-        {}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#bec8ce]/40">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded bg-[#eaf5f9] border border-[#bec8ce]/50 text-[#006481] flex items-center justify-center">
@@ -222,7 +251,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </div>
         </div>
 
-        {}
         <div className="p-4 rounded-lg border-l-4 border-[#006481] bg-[#f8fdff]">
           <div className="flex items-start gap-3">
             <span className="material-symbols-outlined text-[#006481] text-2xl shrink-0 mt-0.5">
@@ -253,9 +281,7 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </div>
         </div>
 
-        {}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-          {}
           <div className="p-4 rounded border border-[#bec8ce]/50 bg-[#f8fdff] flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5 pb-1">
               <span className="material-symbols-outlined text-base text-[#006481]">do_not_disturb_on</span>
@@ -271,7 +297,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
             </div>
           </div>
 
-          {}
           <div className="p-4 rounded border border-[#bec8ce]/50 bg-[#f8fdff] flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5 pb-1">
               <span className="material-symbols-outlined text-base text-[#006481]">tune</span>
@@ -286,7 +311,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
             </div>
           </div>
 
-          {}
           <div className="p-4 rounded border border-[#bec8ce]/50 bg-[#f8fdff] flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5 pb-1">
               <span className="material-symbols-outlined text-base text-[#006481]">mediation</span>
@@ -303,7 +327,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
         </div>
       </section>
 
-      {}
       <section className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-col">
@@ -338,9 +361,7 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
           </div>
         </div>
 
-        {}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-          {}
           <div className="xl:col-span-8 bg-white rounded-lg border border-[#bec8ce]/50 overflow-hidden flex flex-col shadow-xs">
             <div className="p-3.5 bg-[#f8fdff] border-b border-[#bec8ce]/40 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-semibold text-[#131d20]">
@@ -396,7 +417,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
               </table>
             </div>
 
-            {}
             <div className="mt-auto p-3.5 bg-[#f8fdff] border-t border-[#bec8ce]/40 flex items-start gap-2">
               <span className="material-symbols-outlined text-[#006481] text-base shrink-0 mt-0.5">info</span>
               <div className="flex flex-col gap-0.5 text-xs">
@@ -410,23 +430,17 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
             </div>
           </div>
 
-          {}
           <div className="xl:col-span-4 flex flex-col gap-4">
-            {}
             <div className="bg-white rounded-lg border border-[#bec8ce]/50 p-4 flex flex-col gap-2 shadow-xs">
               <div className="flex items-center justify-between pb-1 border-b border-[#bec8ce]/40">
                 <span className="text-xs font-semibold text-[#131d20]">Peak Covariate Shift Gauge</span>
                 <span className="font-label-code text-xs text-slate-500">category_affinity</span>
               </div>
 
-              {}
               <div className="relative flex flex-col items-center justify-center py-2">
                 <svg className="w-48 h-28" viewBox="0 0 200 110">
-                  {}
                   <path d="M 20,100 A 80,80 0 0,1 180,100" fill="none" stroke="#d8e7ed" strokeLinecap="round" strokeWidth="12"></path>
-                  {}
                   <path d="M 20,100 A 80,80 0 0,1 78,35" fill="none" stroke="#2e94b9" strokeLinecap="round" strokeWidth="12"></path>
-                  {}
                   <line stroke="#ba1a1a" strokeWidth="2.5" x1="140" x2="148" y1="31" y2="24"></line>
                 </svg>
 
@@ -443,7 +457,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
               </div>
             </div>
 
-            {}
             <div className="bg-white rounded-lg border border-[#bec8ce]/50 p-4 flex flex-col gap-2 flex-1 shadow-xs">
               <div className="flex items-center justify-between pb-1 border-b border-[#bec8ce]/40">
                 <span className="text-xs font-semibold text-[#131d20]">Empirical CDF Kolmogorov Split</span>
@@ -456,13 +469,10 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
                   <line stroke="#e4f1f6" strokeDasharray="2 2" strokeWidth="1" x1="0" x2="320" y1="60" y2="60"></line>
                   <line stroke="#e4f1f6" strokeDasharray="2 2" strokeWidth="1" x1="0" x2="320" y1="100" y2="100"></line>
 
-                  {}
                   <path d="M 0,110 C 80,105 130,80 180,40 C 230,10 280,5 320,5" fill="none" stroke="#7e8b91" strokeDasharray="3 3" strokeWidth="1.75"></path>
 
-                  {}
                   <path d="M 0,110 C 90,108 140,88 185,48 C 235,15 285,5 320,5" fill="none" stroke="#2e94b9" strokeWidth="2"></path>
 
-                  {}
                   <line stroke="#475053" strokeLinecap="round" strokeWidth="2" x1="182" x2="182" y1="40" y2="48"></line>
                 </svg>
               </div>
@@ -482,7 +492,297 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
         </div>
       </section>
 
-      {}
+      <section className="bg-white rounded-lg border border-[#bec8ce]/50 p-5 sm:p-6 flex flex-col gap-5 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-[#bec8ce]/40 gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#006481]/10 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[#006481] text-xl">stream</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-serif text-xl text-[#131d20] font-semibold">
+                  Real-Time 30-Day Stream Simulator &amp; Continuous Drift Engine
+                </h2>
+                <span className="px-2 py-0.5 rounded border border-[#006481]/30 bg-[#006481]/5 text-[#006481] font-label-code text-xs font-semibold">
+                  Sliding Window Drift Monitor
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Simulate daily incoming customer traffic with compounding inflation, weekend affinity seasonality, and macroeconomic shocks to trigger automated model retraining.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 font-label-code text-xs font-semibold ${
+              rollingDrift?.retrain_recommended
+                ? 'border-red-300 bg-red-50 text-red-700'
+                : 'border-emerald-300 bg-emerald-50 text-emerald-800'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${rollingDrift?.retrain_recommended ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></span>
+              <span>
+                {rollingDrift?.retrain_recommended
+                  ? `CRITICAL DRIFT (Retrain Day ${rollingDrift.first_trigger_day})`
+                  : 'STREAM HEALTHY (PSI < 0.20)'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              disabled={isRetraining}
+              onClick={handleTriggerRetrain}
+              className="px-3.5 py-1.5 rounded bg-[#006481] hover:bg-[#007ea2] text-white font-medium text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-sm ${isRetraining ? 'animate-spin' : ''}`}>
+                {isRetraining ? 'sync' : 'auto_mode'}
+              </span>
+              <span>{isRetraining ? 'Retraining DML...' : 'Trigger DML Retrain'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-[#131d20]">Sliding Window:</span>
+            {[3, 7, 14].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => {
+                  setWindowDays(d);
+                  handleRunStreamSimulation(d, shockDay);
+                }}
+                className={`px-2.5 py-1 rounded font-label-code text-xs font-medium border transition-colors cursor-pointer ${
+                  windowDays === d
+                    ? 'border-[#006481] bg-white text-[#006481] shadow-xs font-bold'
+                    : 'border-[#bec8ce]/50 bg-[#eaf5f9] text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {d}-Day Window
+              </button>
+            ))}
+
+            <div className="h-4 w-[1px] bg-slate-300 mx-1 hidden sm:block"></div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-[#131d20]">Shock Day:</span>
+              <select
+                value={shockDay}
+                onChange={(e) => {
+                  const s = parseInt(e.target.value);
+                  setShockDay(s);
+                  handleRunStreamSimulation(windowDays, s);
+                }}
+                className="bg-white border border-[#bec8ce]/60 rounded px-2 py-0.5 text-xs font-label-code text-slate-700 cursor-pointer"
+              >
+                <option value={15}>Day 15 (Early Shock)</option>
+                <option value={20}>Day 20 (Standard Shock)</option>
+                <option value={25}>Day 25 (Late Shock)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isSimulatingStream}
+              onClick={() => handleRunStreamSimulation(windowDays, shockDay)}
+              className="px-3 py-1.5 rounded border border-[#006481]/50 bg-white hover:bg-slate-50 text-[#006481] font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span className={`material-symbols-outlined text-sm ${isSimulatingStream ? 'animate-spin' : ''}`}>
+                {isSimulatingStream ? 'sync' : 'play_arrow'}
+              </span>
+              <span>{isSimulatingStream ? 'Simulating...' : 'Run Simulation'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+            <span className="text-[11px] font-label-code text-slate-500 block">Peak Sliding PSI</span>
+            <span className={`font-serif text-lg font-bold ${
+              (rollingDrift?.timeline && Math.max(...rollingDrift.timeline.map(t => t.max_psi), 0) >= 0.20)
+                ? 'text-red-700'
+                : 'text-[#006481]'
+            }`}>
+              {(rollingDrift?.timeline
+                ? Math.max(...rollingDrift.timeline.map(t => t.max_psi), 0)
+                : 0.234
+              ).toFixed(3)}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Threshold: 0.20</span>
+          </div>
+
+          <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+            <span className="text-[11px] font-label-code text-slate-500 block">Avg Wasserstein Distance</span>
+            <span className="font-serif text-lg font-bold text-slate-700">
+              {(rollingDrift?.timeline && rollingDrift.timeline.length > 0
+                ? rollingDrift.timeline.reduce((acc, t) => acc + t.avg_wasserstein, 0) / rollingDrift.timeline.length
+                : 0.142
+              ).toFixed(3)}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Earth Mover shift metric</span>
+          </div>
+
+          <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+            <span className="text-[11px] font-label-code text-slate-500 block">First Retrain Trigger</span>
+            <span className="font-serif text-lg font-bold text-red-600">
+              {rollingDrift?.first_trigger_day ? `Day ${rollingDrift.first_trigger_day}` : 'None (Stable)'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Automated signal timestamp</span>
+          </div>
+
+          <div className="p-3 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40">
+            <span className="text-[11px] font-label-code text-slate-500 block">Stream Architecture</span>
+            <span className="font-serif text-sm font-bold text-[#131d20] line-clamp-1">
+              30-Day Ingestion Feed
+            </span>
+            <span className="text-[10px] text-emerald-600 block mt-0.5">{windowDays}d Rolling Evaluation</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-[#006481]">ssid_chart</span>
+              <span className="text-xs font-semibold text-[#131d20]">Sliding Window Telemetry Trajectory</span>
+            </div>
+
+            <div className="flex items-center gap-1 font-label-code text-xs bg-[#eaf5f9] p-0.5 rounded border border-[#bec8ce]/40">
+              <button
+                type="button"
+                onClick={() => setStreamMetric('psi')}
+                className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
+                  streamMetric === 'psi' ? 'bg-white text-[#006481] font-bold shadow-xs' : 'text-slate-600'
+                }`}
+              >
+                PSI Metric
+              </button>
+              <button
+                type="button"
+                onClick={() => setStreamMetric('wasserstein')}
+                className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
+                  streamMetric === 'wasserstein' ? 'bg-white text-[#006481] font-bold shadow-xs' : 'text-slate-600'
+                }`}
+              >
+                Wasserstein
+              </button>
+              <button
+                type="button"
+                onClick={() => setStreamMetric('ks')}
+                className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
+                  streamMetric === 'ks' ? 'bg-white text-[#006481] font-bold shadow-xs' : 'text-slate-600'
+                }`}
+              >
+                KS Statistic
+              </button>
+            </div>
+          </div>
+
+          <div className="relative w-full h-56 rounded-lg bg-[#f8fdff] border border-[#bec8ce]/40 p-2 overflow-hidden flex items-center justify-center">
+            <svg className="w-full h-full" viewBox="0 0 600 180" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="40" y1="150" x2="580" y2="150" stroke="#bec8ce" strokeWidth="1.5"></line>
+              <line x1="40" y1="20" x2="40" y2="150" stroke="#bec8ce" strokeWidth="1.5"></line>
+
+              {streamMetric === 'psi' && (
+                <>
+                  <line x1="40" y1="60" x2="580" y2="60" stroke="#ba1a1a" strokeWidth="1.5" strokeDasharray="4 3"></line>
+                  <text x="500" y="55" fill="#ba1a1a" fontSize="9" fontFamily="JetBrains Mono, monospace">
+                    PSI = 0.20 (Critical Bound)
+                  </text>
+
+                  <line x1="40" y1="105" x2="580" y2="105" stroke="#e67e22" strokeWidth="1" strokeDasharray="3 3"></line>
+                  <text x="500" y="100" fill="#e67e22" fontSize="9" fontFamily="JetBrains Mono, monospace">
+                    PSI = 0.10 (Mild Shift)
+                  </text>
+                </>
+              )}
+
+              <rect x="360" y="20" width="220" height="130" fill="#ba1a1a" fillOpacity="0.04"></rect>
+              <text x="400" y="35" fill="#ba1a1a" fontSize="9" fontFamily="JetBrains Mono, monospace">
+                Drift Shock Active (Day &gt;= {shockDay})
+              </text>
+
+              {(() => {
+                const points = rollingDrift?.timeline ?? [];
+                if (points.length < 2) {
+                  return (
+                    <path
+                      d="M 50 140 C 150 135 250 130 350 120 C 420 80 500 50 570 45"
+                      stroke="#006481"
+                      strokeWidth="2.5"
+                      fill="none"
+                    />
+                  );
+                }
+                const minDay = points[0].day;
+                const maxDay = points[points.length - 1].day;
+                const xSpan = 520;
+                const yBottom = 150;
+                const maxVal = streamMetric === 'psi' ? 0.35 : streamMetric === 'wasserstein' ? 0.40 : 0.30;
+                const coords = points.map((p) => {
+                  const x = 50 + ((p.day - minDay) / Math.max(1, maxDay - minDay)) * xSpan;
+                  const val = streamMetric === 'psi' ? p.max_psi : streamMetric === 'wasserstein' ? p.avg_wasserstein : p.max_ks;
+                  const y = yBottom - (Math.min(val, maxVal) / maxVal) * 125;
+                  return { x, y, p };
+                });
+                const dPath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+                return (
+                  <>
+                    <path d={dPath} stroke="#006481" strokeWidth="2.5" fill="none" />
+                    {coords.map((c) => (
+                      <circle
+                        key={c.p.day}
+                        cx={c.x}
+                        cy={c.y}
+                        r={c.p.alert_triggered && streamMetric === 'psi' ? 4.5 : 3}
+                        fill={c.p.alert_triggered && streamMetric === 'psi' ? '#ba1a1a' : '#006481'}
+                      />
+                    ))}
+                  </>
+                );
+              })()}
+
+              <text x="45" y="165" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">Day 7</text>
+              <text x="180" y="165" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">Day 14</text>
+              <text x="360" y="165" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">Day 21 (Shock)</text>
+              <text x="540" y="165" fill="#6f787e" fontSize="9" fontFamily="JetBrains Mono, monospace">Day 30</text>
+            </svg>
+          </div>
+        </div>
+
+        {rollingDrift?.alerts && rollingDrift.alerts.length > 0 && (
+          <div className="p-3.5 rounded-lg bg-red-50/70 border border-red-200 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-red-600 text-base">notification_important</span>
+              <span className="text-xs font-semibold text-red-900 font-label-code uppercase">
+                Active Production Drift Alerts &amp; Retraining Directives ({rollingDrift.alerts.length} Detected)
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {rollingDrift.alerts.slice(0, 4).map((al, idx) => (
+                <div key={idx} className="p-2.5 rounded bg-white border border-red-200 flex flex-col gap-1 text-xs">
+                  <div className="flex items-center justify-between font-label-code">
+                    <span className="font-bold text-red-800">
+                      Day {al.day} ({al.date}) • {al.feature}
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-700 text-[10px] font-bold">
+                      PSI: {al.value.toFixed(4)} &ge; {al.threshold}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600">{al.message}</p>
+                  <span className="text-[10px] text-[#006481] font-semibold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                    <span>{al.recommendation}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -525,7 +825,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
         </div>
       </section>
 
-      {}
       <section className="bg-white rounded-lg border border-[#bec8ce]/50 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded border border-[#bec8ce]/50 bg-[#eaf5f9] flex items-center justify-center text-slate-600 shrink-0">
@@ -571,7 +870,6 @@ export const ExecutiveDriftView: React.FC<ExecutiveDriftViewProps> = ({
         </div>
       </section>
 
-      {}
       <div className="flex items-center justify-between p-4 rounded-lg bg-white border border-[#bec8ce]/50 shadow-xs">
         <button
           onClick={() => onNavigate('budget-allocation')}

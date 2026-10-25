@@ -1,4 +1,4 @@
-import { CustomerRecord, DecileRow, RefuterTest } from '../types.ts';
+import { CustomerRecord, DecileRow, RefuterTest } from './types.ts';
 
 function downloadFile(content: string | Blob, fileName: string, contentType: string) {
   const blob = content instanceof Blob ? content : new Blob([content], { type: contentType });

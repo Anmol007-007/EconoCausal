@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import Bounds, LinearConstraint, milp
 from scipy.sparse import csc_matrix
-from scipy.stats import ks_2samp
+from scipy.stats import ks_2samp, wasserstein_distance
 
 def allocate_budget(
     df: pd.DataFrame,
@@ -361,3 +361,132 @@ def generate_executive_summary(
             "refutations_passed": refute_ok,
         },
     }
+
+def calculate_wasserstein(
+    reference: np.ndarray,
+    target: np.ndarray,
+) -> float:
+    ref = np.asarray(reference, dtype=float)
+    tgt = np.asarray(target, dtype=float)
+    ref = ref[~np.isnan(ref)]
+    tgt = tgt[~np.isnan(tgt)]
+    if len(ref) == 0 or len(tgt) == 0:
+        return 0.0
+    return float(np.round(wasserstein_distance(ref, tgt), 4))
+
+def simulate_traffic_stream(
+    base_df: pd.DataFrame,
+    n_days: int = 30,
+    daily_records: int = 150,
+    inflation_rate: float = 0.005,
+    seasonal_period: int = 7,
+    drift_shock_day: int = 20,
+    random_state: int = 42,
+) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+    records = []
+    base_date = pd.Timestamp("2026-10-01")
+    for d in range(1, n_days + 1):
+        sample_idx = rng.choice(len(base_df), size=daily_records, replace=True)
+        sub = base_df.iloc[sample_idx].copy().reset_index(drop=True)
+        sub["day"] = d
+        date_str = (base_date + pd.Timedelta(days=d - 1)).strftime("%Y-%m-%d")
+        sub["date"] = date_str
+        mult = (1.0 + inflation_rate) ** d
+        if d >= drift_shock_day:
+            mult *= 1.15
+        if "past_spend" in sub.columns:
+            sub["past_spend"] = np.clip(sub["past_spend"] * mult, 10.0, 1000.0)
+        if "category_affinity" in sub.columns:
+            seasonal_delta = 0.06 * np.sin(2.0 * np.pi * d / seasonal_period)
+            shock_delta = 0.08 if d >= drift_shock_day else 0.0
+            sub["category_affinity"] = np.clip(sub["category_affinity"] + seasonal_delta + shock_delta, 0.0, 1.0)
+        if "recency_days" in sub.columns:
+            sub["recency_days"] = np.clip(sub["recency_days"] + (d * 0.15), 1.0, 365.0)
+        records.append(sub)
+    return pd.concat(records, ignore_index=True)
+
+def compute_rolling_drift(
+    stream_df: pd.DataFrame,
+    reference_df: pd.DataFrame,
+    window_size_days: int = 7,
+    features: Optional[List[str]] = None,
+    psi_threshold: float = 0.20,
+) -> Dict[str, Any]:
+    if features is None:
+        common_cols = [c for c in reference_df.columns if c in stream_df.columns]
+        features = [c for c in common_cols if c not in ("day", "date", "customer_id", "true_effect") and np.issubdtype(reference_df[c].dtype, np.number)]
+    days = sorted(stream_df["day"].unique())
+    timeline = []
+    feature_trajectories = {f: [] for f in features}
+    alerts = []
+    first_trigger_day = None
+    for t in days:
+        if t < window_size_days:
+            continue
+        window_mask = (stream_df["day"] > (t - window_size_days)) & (stream_df["day"] <= t)
+        window_df = stream_df[window_mask]
+        day_date = str(window_df["date"].iloc[-1]) if "date" in window_df.columns and len(window_df) > 0 else f"Day {t}"
+        daily_psis = {}
+        daily_wass = {}
+        daily_ks = {}
+        for feat in features:
+            ref_arr = reference_df[feat].values
+            tgt_arr = window_df[feat].values
+            psi_val = calculate_psi(ref_arr, tgt_arr)
+            wass_val = calculate_wasserstein(ref_arr, tgt_arr)
+            ks_stat, ks_pval = calculate_ks(ref_arr, tgt_arr)
+            daily_psis[feat] = psi_val
+            daily_wass[feat] = wass_val
+            daily_ks[feat] = ks_stat
+            status = "Critical Drift" if psi_val >= psi_threshold else ("Mild Shift" if psi_val >= 0.10 else "Stable")
+            feature_trajectories[feat].append({
+                "day": int(t),
+                "date": day_date,
+                "psi": psi_val,
+                "wasserstein": wass_val,
+                "ks_statistic": ks_stat,
+                "p_value": ks_pval,
+                "status": status,
+            })
+            if psi_val >= psi_threshold:
+                if first_trigger_day is None:
+                    first_trigger_day = int(t)
+                alerts.append({
+                    "day": int(t),
+                    "date": day_date,
+                    "feature": feat,
+                    "metric": "PSI",
+                    "value": psi_val,
+                    "threshold": psi_threshold,
+                    "severity": "Critical",
+                    "message": f"Critical PSI drift of {psi_val:.4f} detected on {feat} over {window_size_days}d sliding window.",
+                    "recommendation": "Initiate automated Double Machine Learning pipeline retraining with updated covariate support.",
+                })
+        max_psi = max(daily_psis.values()) if len(daily_psis) > 0 else 0.0
+        dom_feat = max(daily_psis, key=daily_psis.get) if len(daily_psis) > 0 else ""
+        avg_wass = float(np.mean(list(daily_wass.values()))) if len(daily_wass) > 0 else 0.0
+        max_ks = max(daily_ks.values()) if len(daily_ks) > 0 else 0.0
+        alert_trig = max_psi >= psi_threshold
+        timeline.append({
+            "day": int(t),
+            "date": day_date,
+            "max_psi": round(max_psi, 4),
+            "avg_wasserstein": round(avg_wass, 4),
+            "max_ks": round(max_ks, 4),
+            "alert_triggered": alert_trig,
+            "status": "Critical Drift" if alert_trig else ("Mild Shift" if max_psi >= 0.10 else "Stable"),
+            "dominant_feature": dom_feat,
+        })
+    return {
+        "timeline": timeline,
+        "feature_trajectories": feature_trajectories,
+        "alerts": alerts,
+        "retrain_recommended": first_trigger_day is not None,
+        "first_trigger_day": first_trigger_day,
+        "window_size_days": window_size_days,
+        "total_days": len(days),
+        "psi_threshold": psi_threshold,
+        "overall_status": "Retraining Triggered" if first_trigger_day is not None else "Healthy",
+    }
+

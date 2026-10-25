@@ -1,4 +1,4 @@
-import { CustomerRecord, DecileRow, DriftMetric, MicroserviceEndpoint, RefuterTest } from '../types.ts';
+import { CustomerRecord, DecileRow, DriftMetric, MicroserviceEndpoint, RefuterTest } from './types.ts';
 
 export const INITIAL_CUSTOMERS: CustomerRecord[] = [
   { cust_id: 'C-00001', past_spend: 142.50, recency_days: 14, loyalty_tier: 'Gold', category_affinity: 0.82, age: 34, discount: 10, purchase: 1, true_effect: 0.182, optimal_discount: 10, expected_profit: 38.20, quadrant: 'Persuadable' },

@@ -6,7 +6,10 @@ from src.optimizer import (
     _greedy_knapsack,
     calculate_psi,
     calculate_ks,
+    calculate_wasserstein,
     evaluate_drift,
+    simulate_traffic_stream,
+    compute_rolling_drift,
     generate_executive_summary,
 )
 
@@ -150,3 +153,36 @@ def test_allocate_budget_max_discount_rate():
     alloc_df = res["allocated_df"]
     treated_count = (alloc_df["optimal_discount"] > 0).sum()
     assert treated_count <= int(0.20 * n)
+
+def test_calculate_wasserstein():
+    ref = np.array([1.0, 2.0, 3.0, 4.0])
+    tgt = np.array([2.0, 3.0, 4.0, 5.0])
+    w_dist = calculate_wasserstein(ref, tgt)
+    assert w_dist > 0.0
+    assert calculate_wasserstein(ref, ref) == 0.0
+
+def test_simulate_traffic_stream():
+    base_df = pd.DataFrame({
+        "past_spend": np.random.uniform(50, 150, 100),
+        "recency_days": np.random.uniform(5, 50, 100),
+        "category_affinity": np.random.uniform(0.1, 0.9, 100),
+    })
+    stream_df = simulate_traffic_stream(base_df, n_days=10, daily_records=50, random_state=42)
+    assert len(stream_df) == 500
+    assert stream_df["day"].nunique() == 10
+    assert "date" in stream_df.columns
+    assert (stream_df["past_spend"] >= 10.0).all()
+
+def test_compute_rolling_drift():
+    base_df = pd.DataFrame({
+        "past_spend": np.random.normal(100, 20, 200),
+        "category_affinity": np.random.uniform(0.1, 0.9, 200),
+    })
+    stream_df = simulate_traffic_stream(base_df, n_days=15, daily_records=60, drift_shock_day=10, random_state=42)
+    res = compute_rolling_drift(stream_df, base_df, window_size_days=5, psi_threshold=0.20)
+    assert "timeline" in res
+    assert "feature_trajectories" in res
+    assert "alerts" in res
+    assert len(res["timeline"]) == 11
+    assert "retrain_recommended" in res
+

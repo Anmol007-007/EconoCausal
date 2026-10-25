@@ -111,6 +111,17 @@ def test_drift_endpoint():
     assert "metrics" in data
     assert "max_psi" in data
     assert "overall_status" in data
+    assert "rolling_drift" in data
+
+def test_stream_drift_endpoint():
+    response = client.get("/api/drift/stream?window_days=5&stream_days=15")
+    assert response.status_code == 200
+    data = response.json()
+    assert "timeline" in data
+    assert "feature_trajectories" in data
+    assert "alerts" in data
+    assert len(data["timeline"]) == 11
+
 
 def test_summary_endpoint():
     response = client.get("/api/summary")

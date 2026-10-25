@@ -120,6 +120,49 @@ export interface DiagnosticsResult {
   sensitivity?: SensitivityResult;
 }
 
+export interface RollingDriftTimelinePoint {
+  day: number;
+  date: string;
+  max_psi: number;
+  avg_wasserstein: number;
+  max_ks: number;
+  alert_triggered: boolean;
+  status: 'Stable' | 'Mild Shift' | 'Critical Drift';
+  dominant_feature: string;
+}
+
+export interface RollingDriftAlert {
+  day: number;
+  date: string;
+  feature: string;
+  metric: string;
+  value: number;
+  threshold: number;
+  severity: 'Critical' | 'Warning';
+  message: string;
+  recommendation: string;
+}
+
+export interface RollingDriftResult {
+  timeline: RollingDriftTimelinePoint[];
+  feature_trajectories: Record<string, Array<{
+    day: number;
+    date: string;
+    psi: number;
+    wasserstein: number;
+    ks_statistic: number;
+    p_value: number;
+    status: 'Stable' | 'Mild Shift' | 'Critical Drift';
+  }>>;
+  alerts: RollingDriftAlert[];
+  retrain_recommended: boolean;
+  first_trigger_day: number | null;
+  window_size_days: number;
+  total_days: number;
+  psi_threshold: number;
+  overall_status: string;
+}
+
 export interface DriftResult {
   metrics: Array<{
     feature: string;
@@ -133,6 +176,7 @@ export interface DriftResult {
   critical_features: string[];
   retrain_recommended: boolean;
   overall_status: string;
+  rolling_drift?: RollingDriftResult;
 }
 
 export interface SummaryResult {
@@ -529,23 +573,116 @@ export const apiService = {
     return requestWithFallback('/api/sensitivity', { method: 'GET' }, fallback);
   },
 
-  async checkDrift(params?: { psi_threshold?: number }): Promise<ApiResponse<DriftResult>> {
+  async checkDrift(params?: {
+    psi_threshold?: number;
+    window_days?: number;
+    stream_days?: number;
+    drift_shock_day?: number;
+  }): Promise<ApiResponse<DriftResult>> {
+    const streamDays = params?.stream_days ?? 30;
+    const windowDays = params?.window_days ?? 7;
+    const psiThreshold = params?.psi_threshold ?? 0.2;
+    const shockDay = params?.drift_shock_day ?? 20;
+
+    const mockTimeline: RollingDriftTimelinePoint[] = [];
+    const baseDate = new Date(2026, 9, 1);
+    for (let d = windowDays; d <= streamDays; d++) {
+      const dateStr = new Date(baseDate.getTime() + (d - 1) * 86400000).toISOString().split('T')[0];
+      const isShock = d >= shockDay;
+      const basePsi = 0.03 + (d / streamDays) * 0.05 + (isShock ? 0.16 : 0);
+      const psiVal = Math.round(basePsi * 1000) / 1000;
+      const wassVal = Math.round((0.08 + (isShock ? 0.25 : 0.02 * (d / 10))) * 1000) / 1000;
+      const ksVal = Math.round((0.04 + (isShock ? 0.18 : 0.03)) * 1000) / 1000;
+      mockTimeline.push({
+        day: d,
+        date: dateStr,
+        max_psi: psiVal,
+        avg_wasserstein: wassVal,
+        max_ks: ksVal,
+        alert_triggered: psiVal >= psiThreshold,
+        status: psiVal >= psiThreshold ? 'Critical Drift' : psiVal >= 0.1 ? 'Mild Shift' : 'Stable',
+        dominant_feature: isShock ? 'past_spend' : 'category_affinity',
+      });
+    }
+
     const fallback: DriftResult = {
       metrics: [
-        { feature: 'past_spend', psi: 0.024, ks_statistic: 0.031, p_value: 0.642, status: 'Stable' },
-        { feature: 'recency_days', psi: 0.018, ks_statistic: 0.024, p_value: 0.781, status: 'Stable' },
-        { feature: 'category_affinity', psi: 0.082, ks_statistic: 0.076, p_value: 0.124, status: 'Stable' },
-        { feature: 'age', psi: 0.012, ks_statistic: 0.019, p_value: 0.912, status: 'Stable' },
+        { feature: 'past_spend', psi: 0.234, ks_statistic: 0.182, p_value: 0.002, status: 'Critical Drift' },
+        { feature: 'recency_days', psi: 0.048, ks_statistic: 0.052, p_value: 0.421, status: 'Stable' },
+        { feature: 'category_affinity', psi: 0.142, ks_statistic: 0.096, p_value: 0.048, status: 'Mild Shift' },
+        { feature: 'age', psi: 0.019, ks_statistic: 0.024, p_value: 0.842, status: 'Stable' },
       ],
-      max_psi: 0.082,
-      psi_threshold: params?.psi_threshold ?? 0.2,
-      critical_features: [],
-      retrain_recommended: false,
-      overall_status: 'Healthy',
+      max_psi: 0.234,
+      psi_threshold: psiThreshold,
+      critical_features: ['past_spend'],
+      retrain_recommended: true,
+      overall_status: 'Action Required (Retrain Triggered)',
+      rolling_drift: {
+        timeline: mockTimeline,
+        feature_trajectories: {
+          past_spend: mockTimeline.map(p => ({
+            day: p.day,
+            date: p.date,
+            psi: p.max_psi,
+            wasserstein: p.avg_wasserstein,
+            ks_statistic: p.max_ks,
+            p_value: p.day >= shockDay ? 0.002 : 0.45,
+            status: p.status,
+          })),
+        },
+        alerts: [
+          {
+            day: shockDay,
+            date: new Date(baseDate.getTime() + (shockDay - 1) * 86400000).toISOString().split('T')[0],
+            feature: 'past_spend',
+            metric: 'PSI',
+            value: 0.234,
+            threshold: psiThreshold,
+            severity: 'Critical',
+            message: `Critical PSI drift of 0.2340 detected on past_spend over ${windowDays}d sliding window.`,
+            recommendation: 'Initiate automated Double Machine Learning pipeline retraining with updated covariate support.',
+          },
+        ],
+        retrain_recommended: true,
+        first_trigger_day: shockDay,
+        window_size_days: windowDays,
+        total_days: streamDays,
+        psi_threshold: psiThreshold,
+        overall_status: 'Retraining Triggered',
+      },
     };
 
     return requestWithFallback(
       '/api/drift',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params || {}),
+      },
+      fallback
+    );
+  },
+
+  async getStreamDrift(params?: {
+    window_days?: number;
+    psi_threshold?: number;
+    stream_days?: number;
+    drift_shock_day?: number;
+  }): Promise<ApiResponse<RollingDriftResult>> {
+    const res = await this.checkDrift(params);
+    const fallback: RollingDriftResult = res.data.rolling_drift ?? {
+      timeline: [],
+      feature_trajectories: {},
+      alerts: [],
+      retrain_recommended: false,
+      first_trigger_day: null,
+      window_size_days: 7,
+      total_days: 30,
+      psi_threshold: 0.2,
+      overall_status: 'Healthy',
+    };
+    return requestWithFallback(
+      '/api/drift/stream',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

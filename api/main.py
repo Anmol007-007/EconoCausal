@@ -36,6 +36,9 @@ from src.optimizer import (
     allocate_budget,
     evaluate_drift,
     generate_executive_summary,
+    simulate_traffic_stream,
+    compute_rolling_drift,
+    calculate_wasserstein,
 )
 
 app = FastAPI(title="EconoCausal API", version="1.0.0")
@@ -54,6 +57,7 @@ _STATE: Dict[str, Any] = {
     "uplift_df": None,
     "allocation_results": None,
     "drift_results": None,
+    "rolling_drift_results": None,
     "refutation_results": None,
     "diagnostics_cache": None,
     "summary_cache": None,
@@ -82,7 +86,10 @@ class AllocateRequest(BaseModel):
 class DriftRequest(BaseModel):
     baseline_id: Optional[str] = "default_retail"
     window: Optional[str] = "7d"
+    window_days: int = Field(default=7, ge=3, le=14)
     psi_threshold: float = Field(default=0.20, ge=0.01, le=1.0)
+    stream_days: int = Field(default=30, ge=7, le=60)
+    drift_shock_day: int = Field(default=20, ge=5, le=55)
 
 @app.get("/")
 @app.get("/health")
@@ -331,9 +338,51 @@ def check_drift(payload: Optional[DriftRequest] = None) -> Dict[str, Any]:
         production_df=df_prod,
         psi_threshold=payload.psi_threshold,
     )
+    stream_df = simulate_traffic_stream(
+        base_df=df_base,
+        n_days=payload.stream_days,
+        daily_records=150,
+        drift_shock_day=payload.drift_shock_day,
+        random_state=42,
+    )
+    rolling_res = compute_rolling_drift(
+        stream_df=stream_df,
+        reference_df=df_base,
+        window_size_days=payload.window_days,
+        psi_threshold=payload.psi_threshold,
+    )
+    report["rolling_drift"] = rolling_res
     _STATE["drift_results"] = report
+    _STATE["rolling_drift_results"] = rolling_res
     _STATE["summary_cache"] = None
     return report
+
+@app.post("/drift/stream")
+@app.post("/api/drift/stream")
+@app.get("/drift/stream")
+@app.get("/api/drift/stream")
+def get_stream_drift(
+    window_days: int = 7,
+    psi_threshold: float = 0.20,
+    stream_days: int = 30,
+    drift_shock_day: int = 20,
+) -> Dict[str, Any]:
+    df_base = _get_active_df()
+    stream_df = simulate_traffic_stream(
+        base_df=df_base,
+        n_days=stream_days,
+        daily_records=150,
+        drift_shock_day=drift_shock_day,
+        random_state=42,
+    )
+    rolling_res = compute_rolling_drift(
+        stream_df=stream_df,
+        reference_df=df_base,
+        window_size_days=window_days,
+        psi_threshold=psi_threshold,
+    )
+    _STATE["rolling_drift_results"] = rolling_res
+    return rolling_res
 
 @app.get("/summary")
 @app.get("/api/summary")
