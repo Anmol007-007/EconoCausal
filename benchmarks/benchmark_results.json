@@ -1,0 +1,314 @@
+{
+  "timestamp": 1793108145.9673193,
+  "scale_results": [
+    {
+      "n_records": 10000,
+      "repeats": 2,
+      "throughput_rows_sec": 1380.0,
+      "memory_mb": {
+        "initial_ram_mb": 272.9,
+        "peak_ram_mb": 295.5,
+        "delta_ram_mb": 22.6,
+        "final_ram_mb": 295.5
+      },
+      "stage_metrics": {
+        "data_generation": {
+          "p50": 19.62,
+          "p95": 21.12,
+          "p99": 21.25,
+          "mean": 19.62,
+          "std": 1.67,
+          "min": 17.94,
+          "max": 21.29
+        },
+        "propensity_scoring": {
+          "p50": 1549.44,
+          "p95": 1575.51,
+          "p99": 1577.82,
+          "mean": 1549.44,
+          "std": 28.96,
+          "min": 1520.49,
+          "max": 1578.4
+        },
+        "dml_training": {
+          "p50": 4197.74,
+          "p95": 4402.0,
+          "p99": 4420.15,
+          "mean": 4197.74,
+          "std": 226.96,
+          "min": 3970.78,
+          "max": 4424.69
+        },
+        "cate_inference": {
+          "p50": 810.43,
+          "p95": 822.32,
+          "p99": 823.38,
+          "mean": 810.43,
+          "std": 13.21,
+          "min": 797.22,
+          "max": 823.64
+        },
+        "milp_optimization": {
+          "p50": 120.21,
+          "p95": 121.17,
+          "p99": 121.25,
+          "mean": 120.21,
+          "std": 1.06,
+          "min": 119.15,
+          "max": 121.27
+        },
+        "drift_computation": {
+          "p50": 549.02,
+          "p95": 637.02,
+          "p99": 644.84,
+          "mean": 549.02,
+          "std": 97.78,
+          "min": 451.24,
+          "max": 646.8
+        },
+        "end_to_end": {
+          "p50": 7246.48,
+          "p95": 7398.24,
+          "p99": 7411.73,
+          "mean": 7246.48,
+          "std": 168.62,
+          "min": 7077.87,
+          "max": 7415.1
+        }
+      }
+    },
+    {
+      "n_records": 25000,
+      "repeats": 2,
+      "throughput_rows_sec": 3038.7,
+      "memory_mb": {
+        "initial_ram_mb": 295.5,
+        "peak_ram_mb": 302.3,
+        "delta_ram_mb": 6.8,
+        "final_ram_mb": 302.3
+      },
+      "stage_metrics": {
+        "data_generation": {
+          "p50": 56.64,
+          "p95": 66.17,
+          "p99": 67.01,
+          "mean": 56.64,
+          "std": 10.59,
+          "min": 46.05,
+          "max": 67.22
+        },
+        "propensity_scoring": {
+          "p50": 2453.21,
+          "p95": 3330.92,
+          "p99": 3408.94,
+          "mean": 2453.21,
+          "std": 975.23,
+          "min": 1477.98,
+          "max": 3428.44
+        },
+        "dml_training": {
+          "p50": 4466.75,
+          "p95": 4526.99,
+          "p99": 4532.35,
+          "mean": 4466.75,
+          "std": 66.93,
+          "min": 4399.82,
+          "max": 4533.68
+        },
+        "cate_inference": {
+          "p50": 693.15,
+          "p95": 716.31,
+          "p99": 718.37,
+          "mean": 693.15,
+          "std": 25.73,
+          "min": 667.41,
+          "max": 718.88
+        },
+        "milp_optimization": {
+          "p50": 121.01,
+          "p95": 124.24,
+          "p99": 124.53,
+          "mean": 121.01,
+          "std": 3.58,
+          "min": 117.43,
+          "max": 124.6
+        },
+        "drift_computation": {
+          "p50": 436.29,
+          "p95": 446.34,
+          "p99": 447.23,
+          "mean": 436.29,
+          "std": 11.17,
+          "min": 425.12,
+          "max": 447.45
+        },
+        "end_to_end": {
+          "p50": 8227.07,
+          "p95": 9037.73,
+          "p99": 9109.79,
+          "mean": 8227.07,
+          "std": 900.74,
+          "min": 7326.33,
+          "max": 9127.8
+        }
+      }
+    },
+    {
+      "n_records": 50000,
+      "repeats": 2,
+      "throughput_rows_sec": 6080.4,
+      "memory_mb": {
+        "initial_ram_mb": 296.9,
+        "peak_ram_mb": 309.3,
+        "delta_ram_mb": 12.4,
+        "final_ram_mb": 305.7
+      },
+      "stage_metrics": {
+        "data_generation": {
+          "p50": 84.2,
+          "p95": 87.01,
+          "p99": 87.26,
+          "mean": 84.2,
+          "std": 3.12,
+          "min": 81.08,
+          "max": 87.32
+        },
+        "propensity_scoring": {
+          "p50": 2133.02,
+          "p95": 2189.05,
+          "p99": 2194.03,
+          "mean": 2133.02,
+          "std": 62.26,
+          "min": 2070.77,
+          "max": 2195.28
+        },
+        "dml_training": {
+          "p50": 4606.03,
+          "p95": 4643.46,
+          "p99": 4646.79,
+          "mean": 4606.03,
+          "std": 41.59,
+          "min": 4564.44,
+          "max": 4647.62
+        },
+        "cate_inference": {
+          "p50": 751.67,
+          "p95": 753.68,
+          "p99": 753.86,
+          "mean": 751.67,
+          "std": 2.23,
+          "min": 749.44,
+          "max": 753.9
+        },
+        "milp_optimization": {
+          "p50": 130.2,
+          "p95": 132.1,
+          "p99": 132.26,
+          "mean": 130.2,
+          "std": 2.11,
+          "min": 128.09,
+          "max": 132.31
+        },
+        "drift_computation": {
+          "p50": 518.0,
+          "p95": 530.0,
+          "p99": 531.07,
+          "mean": 518.0,
+          "std": 13.34,
+          "min": 504.66,
+          "max": 531.34
+        },
+        "end_to_end": {
+          "p50": 8223.15,
+          "p95": 8260.46,
+          "p99": 8263.78,
+          "mean": 8223.15,
+          "std": 41.46,
+          "min": 8181.68,
+          "max": 8264.61
+        }
+      }
+    }
+  ],
+  "meta_results": {
+    "results": {
+      "S-Learner": {
+        "train_time_sec": 0.092,
+        "inference_latency_ms": 60.92,
+        "pehe_arm_10": 0.061,
+        "pehe_arm_20": 0.0807,
+        "mean_pehe": 0.0708,
+        "qini_score": -7.6282
+      },
+      "T-Learner": {
+        "train_time_sec": 0.131,
+        "inference_latency_ms": 53.67,
+        "pehe_arm_10": 0.1294,
+        "pehe_arm_20": 0.1409,
+        "mean_pehe": 0.1351,
+        "qini_score": -9.1442
+      },
+      "X-Learner": {
+        "train_time_sec": 1.119,
+        "inference_latency_ms": 123.44,
+        "pehe_arm_10": 0.0708,
+        "pehe_arm_20": 0.0889,
+        "mean_pehe": 0.0799,
+        "qini_score": -10.9862
+      },
+      "EconoCausal (CausalForestDML)": {
+        "train_time_sec": 2.417,
+        "inference_latency_ms": 376.85,
+        "pehe_arm_10": 0.1094,
+        "pehe_arm_20": 0.1161,
+        "mean_pehe": 0.1127,
+        "qini_score": -2.2478
+      }
+    },
+    "summary_table": [
+      {
+        "Rank": 1,
+        "Model Architecture": "S-Learner",
+        "Mean PEHE (Error)": 0.0708,
+        "PEHE 10% Arm": 0.061,
+        "PEHE 20% Arm": 0.0807,
+        "Qini Score (AUUC)": -7.6282,
+        "Train Time (s)": 0.092,
+        "Inference Latency (ms)": 60.92
+      },
+      {
+        "Rank": 2,
+        "Model Architecture": "X-Learner",
+        "Mean PEHE (Error)": 0.0799,
+        "PEHE 10% Arm": 0.0708,
+        "PEHE 20% Arm": 0.0889,
+        "Qini Score (AUUC)": -10.9862,
+        "Train Time (s)": 1.119,
+        "Inference Latency (ms)": 123.44
+      },
+      {
+        "Rank": 3,
+        "Model Architecture": "EconoCausal (CausalForestDML)",
+        "Mean PEHE (Error)": 0.1127,
+        "PEHE 10% Arm": 0.1094,
+        "PEHE 20% Arm": 0.1161,
+        "Qini Score (AUUC)": -2.2478,
+        "Train Time (s)": 2.417,
+        "Inference Latency (ms)": 376.85
+      },
+      {
+        "Rank": 4,
+        "Model Architecture": "T-Learner",
+        "Mean PEHE (Error)": 0.1351,
+        "PEHE 10% Arm": 0.1294,
+        "PEHE 20% Arm": 0.1409,
+        "Qini Score (AUUC)": -9.1442,
+        "Train Time (s)": 0.131,
+        "Inference Latency (ms)": 53.67
+      }
+    ],
+    "train_size": 4000,
+    "test_size": 2000,
+    "best_model": "S-Learner"
+  }
+}

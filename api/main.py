@@ -1,5 +1,6 @@
 from __future__ import annotations
 import io
+from pathlib import Path
 import time
 from typing import Any, Dict, List, Optional
 import numpy as np
@@ -93,8 +94,20 @@ class DriftRequest(BaseModel):
 
 @app.get("/")
 @app.get("/health")
-def health_check() -> Dict[str, str]:
-    return {"status": "healthy", "service": "EconoCausal API", "version": "1.0.0"}
+@app.get("/api/health")
+def health_check() -> Dict[str, Any]:
+    return {
+        "status": "healthy",
+        "service": "EconoCausal API",
+        "version": "1.0.0",
+        "timestamp": round(time.time(), 3),
+        "active_records": len(_STATE["df"]) if _STATE["df"] is not None else 0,
+        "cached_models": {
+            "dml_trained": _STATE["dml_bundle"] is not None,
+            "allocated": _STATE["allocation_results"] is not None,
+            "drift_evaluated": _STATE["drift_results"] is not None,
+        },
+    }
 
 @app.get("/benchmarks")
 @app.get("/api/benchmarks")
@@ -404,3 +417,26 @@ def get_executive_summary() -> Dict[str, Any]:
     )
     _STATE["summary_cache"] = summary
     return summary
+
+
+frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        file_path = frontend_dist / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        index_file = frontend_dist / "index.html"
+        if index_file.exists():
+            return FileResponse(str(index_file))
+        raise HTTPException(status_code=404, detail="Frontend build not found")
+
