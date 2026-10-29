@@ -52,3 +52,57 @@
     background: #6f787e;
   }
 }
+/* Dark mode CSS variables */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0d1b1e;
+  color: #e2ecef;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1a2b30;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3a4d52;
+}
+
+/* Accessibility: focus-visible ring */
+:focus-visible {
+  outline: 2px solid #006481;
+  outline-offset: 2px;
+}
+
+/* Skip navigation */
+.skip-nav {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  background: #006481;
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  font-size: 14px;
+  z-index: 99999;
+}
+.skip-nav:focus {
+  top: 0;
+}
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  header, footer, button, nav { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .no-print { display: none !important; }
+}

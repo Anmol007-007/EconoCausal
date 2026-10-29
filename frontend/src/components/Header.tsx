@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ScreenTab } from '../types.ts';
 import { apiService } from '../apiService.ts';
+import { useTheme } from '../hooks/useTheme';
 
 interface HeaderProps {
   currentTab: ScreenTab;
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isBackendLive, setIsBackendLive] = useState<boolean | null>(null);
+  const { toggleTheme, isDark } = useTheme();
 
   useEffect(() => {
     let mounted = true;
@@ -78,6 +80,16 @@ export const Header: React.FC<HeaderProps> = ({
               <span className={`w-2 h-2 rounded-full ${isBackendLive ? 'bg-emerald-500 animate-pulse' : isBackendLive === false ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
               <span>{isBackendLive ? 'API: LIVE (FastAPI:8000)' : 'API: MOCK (Offline)'}</span>
             </div>
+
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-center w-8 h-8 rounded border border-[#bec8ce]/50 hover:bg-[#eaf5f9] dark:hover:bg-[#2a3a3f] text-[#475053] dark:text-[#a8b8be] transition-colors cursor-pointer"
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              type="button"
+              aria-label="Toggle dark mode"
+            >
+              <span className="material-symbols-outlined text-base">{isDark ? 'light_mode' : 'dark_mode'}</span>
+            </button>
 
             <button
               onClick={onOpenApiDocs}

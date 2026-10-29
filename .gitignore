@@ -30,7 +30,10 @@ AGENTS.md
 WORK_TRACKER.md
 docs/PRD.md
 docs/DOM.md
-
+docs/DEPLOYMENT.md
+docs/presentation_slides.md
+docs\project_report.md
+docs
 # Environment variables
 .env
 .env.local
