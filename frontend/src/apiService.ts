@@ -3,7 +3,20 @@ import {
   DecileRow,
   DriftMetric,
   RefuterTest,
+  ShapFeatureImportance,
+  CustomerSegment,
+  LiveMetric,
+  ModelBenchmarkResult,
+  RoiScenario,
 } from './types.ts';
+import {
+  SHAP_IMPORTANCE_DATA,
+  SHAP_WATERFALL_SAMPLE,
+  CUSTOMER_SEGMENTS_DATA,
+  MODEL_BENCHMARK_DATA,
+  LIVE_METRICS_DATA,
+  ROI_SCENARIOS_DATA,
+} from './mockData.ts';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -731,5 +744,44 @@ export const apiService = {
     };
 
     return requestWithFallback('/api/summary', { method: 'GET' }, fallback);
+  },
+
+  async getShapValues(): Promise<ApiResponse<{
+    importance: ShapFeatureImportance[];
+    sample_waterfall: typeof SHAP_WATERFALL_SAMPLE;
+  }>> {
+    const fallback = {
+      importance: SHAP_IMPORTANCE_DATA,
+      sample_waterfall: SHAP_WATERFALL_SAMPLE,
+    };
+    return requestWithFallback('/api/shap', { method: 'GET' }, fallback);
+  },
+
+  async getSegments(): Promise<ApiResponse<CustomerSegment[]>> {
+    return requestWithFallback('/api/segments', { method: 'GET' }, CUSTOMER_SEGMENTS_DATA);
+  },
+
+  async getModelComparison(): Promise<ApiResponse<ModelBenchmarkResult[]>> {
+    return requestWithFallback('/api/model-comparison', { method: 'GET' }, MODEL_BENCHMARK_DATA);
+  },
+
+  async getLiveMetrics(): Promise<ApiResponse<LiveMetric[]>> {
+    return requestWithFallback('/api/live-metrics', { method: 'GET' }, LIVE_METRICS_DATA);
+  },
+
+  async simulateRoi(params?: {
+    budget?: number;
+    unit_margin?: number;
+    targeting_strategy?: string;
+  }): Promise<ApiResponse<RoiScenario[]>> {
+    return requestWithFallback(
+      '/api/roi-sim',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params || {}),
+      },
+      ROI_SCENARIOS_DATA
+    );
   },
 };

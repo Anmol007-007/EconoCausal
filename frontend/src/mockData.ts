@@ -1,4 +1,17 @@
-import { CustomerRecord, DecileRow, DriftMetric, MicroserviceEndpoint, RefuterTest } from './types.ts';
+import {
+  CustomerRecord,
+  DecileRow,
+  DriftMetric,
+  MicroserviceEndpoint,
+  RefuterTest,
+  ShapFeatureImportance,
+  CustomerSegment,
+  LiveMetric,
+  ModelBenchmarkResult,
+  RoiScenario,
+  AlertNotification,
+  UserPreferences,
+} from './types.ts';
 
 export const INITIAL_CUSTOMERS: CustomerRecord[] = [
   { cust_id: 'C-00001', past_spend: 142.50, recency_days: 14, loyalty_tier: 'Gold', category_affinity: 0.82, age: 34, discount: 10, purchase: 1, true_effect: 0.182, optimal_discount: 10, expected_profit: 38.20, quadrant: 'Persuadable' },
@@ -48,45 +61,42 @@ export const REFUTER_SUITE: RefuterTest[] = [
     icon: 'grain',
     description: 'Adds synthetic orthogonal noise variables into covariate matrix W to test estimator stability.',
     metricLabel: 'Estimate Shift:',
-    metricValue: '< 0.3% Drift',
+    metricValue: '-0.0011 (Δ < 1%)',
     status: 'PASSED'
   },
   {
     id: 'data_subset',
     name: 'Data Subset Refuter',
-    icon: 'splitscreen',
-    description: 'Repeats Double ML nuisance cross-fitting on 10 random 80% splits to check sample stability.',
-    metricLabel: 'Effect Variance:',
-    metricValue: '±0.002 (CI 95%)',
-    status: 'PASSED'
-  },
-  {
-    id: 'unobserved_sensitivity',
-    name: 'Unobserved Sensitivity',
-    icon: 'visibility_off',
-    description: 'Oster/Rosenbaum bound calculation: hidden confounder strength needed to overturn lift.',
-    metricLabel: 'Critical Gamma:',
-    metricValue: '> 2.85 (Resistant)',
+    icon: 'pie_chart',
+    description: 'Re-estimates causal forest parameters across random 80% subsamples over 10 cross-validation folds.',
+    metricLabel: 'Subset Variance:',
+    metricValue: '±0.0032 (Robust)',
     status: 'PASSED'
   }
 ];
 
+export const DRIFT_METRICS: DriftMetric[] = [
+  { feature: 'past_spend', domain: 'Financial', psi: 0.038, ks: 0.024, pValue: 0.42, status: 'Stable' },
+  { feature: 'recency_days', domain: 'Engagement', psi: 0.052, ks: 0.031, pValue: 0.28, status: 'Stable' },
+  { feature: 'category_affinity', domain: 'Behavioral', psi: 0.128, ks: 0.065, pValue: 0.048, status: 'Mild Shift' },
+  { feature: 'loyalty_tier', domain: 'Profile', psi: 0.015, ks: 0.012, pValue: 0.76, status: 'Stable' },
+  { feature: 'predicted_uplift', domain: 'Model Output', psi: 0.044, ks: 0.029, pValue: 0.35, status: 'Stable' }
+];
+
 export const DRIFT_METRICS_7D: DriftMetric[] = [
-  { feature: 'past_spend', domain: 'Continuous ($)', psi: 0.042, ks: 0.031, pValue: 0.48, status: 'Stable' },
-  { feature: 'recency_days', domain: 'Continuous (Days)', psi: 0.061, ks: 0.042, pValue: 0.32, status: 'Stable' },
-  { feature: 'loyalty_tier', domain: 'Categorical (Ord)', psi: 0.028, ks: 0.021, pValue: 0.71, status: 'Stable' },
-  { feature: 'category_affinity', domain: 'Vector Density', psi: 0.082, ks: 0.054, pValue: 0.18, status: 'Mild Shift' },
-  { feature: 'ITE ($10 Promo)', domain: 'Causal Estimand τ(x)', psi: 0.051, ks: 0.039, pValue: 0.36, status: 'Stable' },
-  { feature: 'ITE ($20 Promo)', domain: 'Causal Estimand τ(x)', psi: 0.064, ks: 0.044, pValue: 0.27, status: 'Stable' }
+  { feature: 'past_spend', domain: 'Financial', psi: 0.038, ks: 0.024, pValue: 0.42, status: 'Stable' },
+  { feature: 'recency_days', domain: 'Engagement', psi: 0.052, ks: 0.031, pValue: 0.28, status: 'Stable' },
+  { feature: 'category_affinity', domain: 'Behavioral', psi: 0.064, ks: 0.038, pValue: 0.22, status: 'Stable' },
+  { feature: 'loyalty_tier', domain: 'Profile', psi: 0.015, ks: 0.012, pValue: 0.76, status: 'Stable' },
+  { feature: 'predicted_uplift', domain: 'Model Output', psi: 0.044, ks: 0.029, pValue: 0.35, status: 'Stable' }
 ];
 
 export const DRIFT_METRICS_30D: DriftMetric[] = [
-  { feature: 'past_spend', domain: 'Continuous ($)', psi: 0.053, ks: 0.038, pValue: 0.39, status: 'Stable' },
-  { feature: 'recency_days', domain: 'Continuous (Days)', psi: 0.078, ks: 0.049, pValue: 0.24, status: 'Stable' },
-  { feature: 'loyalty_tier', domain: 'Categorical (Ord)', psi: 0.035, ks: 0.025, pValue: 0.62, status: 'Stable' },
-  { feature: 'category_affinity', domain: 'Vector Density', psi: 0.096, ks: 0.068, pValue: 0.11, status: 'Mild Shift' },
-  { feature: 'ITE ($10 Promo)', domain: 'Causal Estimand τ(x)', psi: 0.059, ks: 0.045, pValue: 0.31, status: 'Stable' },
-  { feature: 'ITE ($20 Promo)', domain: 'Causal Estimand τ(x)', psi: 0.071, ks: 0.051, pValue: 0.22, status: 'Stable' }
+  { feature: 'past_spend', domain: 'Financial', psi: 0.082, ks: 0.048, pValue: 0.14, status: 'Stable' },
+  { feature: 'recency_days', domain: 'Engagement', psi: 0.094, ks: 0.056, pValue: 0.08, status: 'Stable' },
+  { feature: 'category_affinity', domain: 'Behavioral', psi: 0.185, ks: 0.082, pValue: 0.021, status: 'Mild Shift' },
+  { feature: 'loyalty_tier', domain: 'Profile', psi: 0.028, ks: 0.019, pValue: 0.65, status: 'Stable' },
+  { feature: 'predicted_uplift', domain: 'Model Output', psi: 0.091, ks: 0.052, pValue: 0.11, status: 'Stable' }
 ];
 
 export const MICROSERVICE_ENDPOINTS: MicroserviceEndpoint[] = [
@@ -98,9 +108,7 @@ export const MICROSERVICE_ENDPOINTS: MicroserviceEndpoint[] = [
 ];
 
 export function computeMilpAllocation(totalBudget: number, unitMargin: number = 45) {
-
   const ratio = totalBudget / 5000;
-
   const targetedPersuadables = Math.min(11200, Math.round(382 * Math.pow(ratio, 0.72)));
   const purchasesCaptured = Math.round(targetedPersuadables * 1.07);
   const grossProfit = purchasesCaptured * unitMargin;
@@ -126,3 +134,344 @@ export function computeMilpAllocation(totalBudget: number, unitMargin: number = 
     actualSpend: alloc10 * 10 + alloc20 * 20
   };
 }
+
+export const SHAP_IMPORTANCE_DATA: ShapFeatureImportance[] = [
+  {
+    feature: 'past_spend',
+    mean_abs_shap: 0.0842,
+    direction: 'positive',
+    description: 'Higher previous customer expenditure increases price sensitivity elasticity in promotional campaigns.',
+    impact_level: 'High',
+    relative_weight: 38.4,
+  },
+  {
+    feature: 'recency_days',
+    mean_abs_shap: 0.0615,
+    direction: 'negative',
+    description: 'Lapsed customers (recency > 60 days) exhibit dampened uplift response to promotional discounts.',
+    impact_level: 'High',
+    relative_weight: 27.6,
+  },
+  {
+    feature: 'category_affinity',
+    mean_abs_shap: 0.0398,
+    direction: 'positive',
+    description: 'Deep affinity for target catalog categories significantly magnifies coupon conversion probabilities.',
+    impact_level: 'Medium',
+    relative_weight: 18.2,
+  },
+  {
+    feature: 'age',
+    mean_abs_shap: 0.0210,
+    direction: 'positive',
+    description: 'Middle-age cohort demographics (30-48 years) demonstrate peak conditional treatment effects.',
+    impact_level: 'Medium',
+    relative_weight: 9.8,
+  },
+  {
+    feature: 'loyalty_tier',
+    mean_abs_shap: 0.0132,
+    direction: 'negative',
+    description: 'High-tier loyalty members (Platinum) already purchase organically; discounting yields negative net incrementality.',
+    impact_level: 'Low',
+    relative_weight: 6.0,
+  },
+];
+
+export const SHAP_WATERFALL_SAMPLE = {
+  customer_id: 'C-00001 (Gold Tier)',
+  base_value: 0.052,
+  final_cate: 0.182,
+  contributions: [
+    { feature: 'past_spend = $142.50', value: +0.071, cumulative: 0.123 },
+    { feature: 'category_affinity = 0.82', value: +0.048, cumulative: 0.171 },
+    { feature: 'recency_days = 14', value: +0.024, cumulative: 0.195 },
+    { feature: 'age = 34', value: +0.009, cumulative: 0.204 },
+    { feature: 'loyalty_tier = Gold', value: -0.022, cumulative: 0.182 },
+  ],
+};
+
+export const CUSTOMER_SEGMENTS_DATA: CustomerSegment[] = [
+  {
+    quadrant: 'Persuadable',
+    count: 11200,
+    percentage: 22.4,
+    avg_uplift: +0.214,
+    avg_past_spend: 138.40,
+    avg_recency: 24,
+    recommended_action: 'Target with $10 or $20 coupon. Maximum incremental lift per dollar invested.',
+    risk_profile: 'Low',
+    projected_roi: 268.4,
+  },
+  {
+    quadrant: 'Sure Thing',
+    count: 15900,
+    percentage: 31.8,
+    avg_uplift: +0.012,
+    avg_past_spend: 324.80,
+    avg_recency: 7,
+    recommended_action: 'Strictly withhold discounts. They convert organically; coupons cause deadweight loss.',
+    risk_profile: 'High',
+    projected_roi: -64.2,
+  },
+  {
+    quadrant: 'Lost Cause',
+    count: 18400,
+    percentage: 36.8,
+    avg_uplift: +0.008,
+    avg_past_spend: 24.10,
+    avg_recency: 98,
+    recommended_action: 'Suppress from expensive channels. Low conversion elasticity regardless of discount.',
+    risk_profile: 'Medium',
+    projected_roi: -88.5,
+  },
+  {
+    quadrant: 'Sleeping Dog',
+    count: 4500,
+    percentage: 9.0,
+    avg_uplift: -0.042,
+    avg_past_spend: 58.20,
+    avg_recency: 72,
+    recommended_action: 'Do not contact. Discounts trigger opt-outs, unsubscribes, or cart abandonment.',
+    risk_profile: 'Severe',
+    projected_roi: -142.0,
+  },
+];
+
+export const MODEL_BENCHMARK_DATA: ModelBenchmarkResult[] = [
+  {
+    learner: 'CausalForestDML',
+    displayName: 'CausalForestDML (Cross-Fitted LightGBM)',
+    pehe: 0.0284,
+    auqc: 0.412,
+    qini_score: 0.684,
+    training_time_s: 1.84,
+    inference_time_ms: 12.4,
+    ram_usage_mb: 245,
+    robustness_score: 98.2,
+    is_winner: true,
+  },
+  {
+    learner: 'XLearner',
+    displayName: 'X-Learner (Propensity-Weighted Double Stage)',
+    pehe: 0.0492,
+    auqc: 0.365,
+    qini_score: 0.598,
+    training_time_s: 2.45,
+    inference_time_ms: 18.2,
+    ram_usage_mb: 310,
+    robustness_score: 87.5,
+    is_winner: false,
+  },
+  {
+    learner: 'TLearner',
+    displayName: 'T-Learner (Two Separate Treatment Classifiers)',
+    pehe: 0.0718,
+    auqc: 0.298,
+    qini_score: 0.512,
+    training_time_s: 0.92,
+    inference_time_ms: 9.1,
+    ram_usage_mb: 180,
+    robustness_score: 74.0,
+    is_winner: false,
+  },
+  {
+    learner: 'SLearner',
+    displayName: 'S-Learner (Single Outcome Estimator with Treatment Dummy)',
+    pehe: 0.1140,
+    auqc: 0.215,
+    qini_score: 0.420,
+    training_time_s: 0.48,
+    inference_time_ms: 6.4,
+    ram_usage_mb: 140,
+    robustness_score: 52.8,
+    is_winner: false,
+  },
+];
+
+export const LIVE_METRICS_DATA: LiveMetric[] = [
+  {
+    id: 'auqc',
+    label: 'Model AUQC Score',
+    value: '0.412',
+    unit: 'score',
+    trend: +4.8,
+    icon: 'show_chart',
+    status: 'healthy',
+    category: 'ml',
+  },
+  {
+    id: 'pehe',
+    label: 'PEHE (Estimation RMSE)',
+    value: '0.028',
+    unit: 'rmse',
+    trend: -12.4,
+    icon: 'adjust',
+    status: 'healthy',
+    category: 'ml',
+  },
+  {
+    id: 'roi',
+    label: 'Incremental Net Profit',
+    value: '$18,420',
+    unit: 'USD',
+    trend: +18.2,
+    icon: 'trending_up',
+    status: 'healthy',
+    category: 'business',
+  },
+  {
+    id: 'cannibalization',
+    label: 'Sure Thing Margin Saved',
+    value: '$11,240',
+    unit: 'USD',
+    trend: +8.5,
+    icon: 'savings',
+    status: 'healthy',
+    category: 'business',
+  },
+  {
+    id: 'throughput',
+    label: 'Inference Throughput',
+    value: '14,250',
+    unit: 'records/sec',
+    trend: +2.1,
+    icon: 'speed',
+    status: 'healthy',
+    category: 'system',
+  },
+  {
+    id: 'latency',
+    label: 'API P95 Latency',
+    value: '142',
+    unit: 'ms',
+    trend: -6.4,
+    icon: 'timer',
+    status: 'healthy',
+    category: 'system',
+  },
+  {
+    id: 'drift',
+    label: 'Max Population PSI',
+    value: '0.082',
+    unit: 'PSI',
+    trend: -1.2,
+    icon: 'sync_alt',
+    status: 'healthy',
+    category: 'ml',
+  },
+  {
+    id: 'node_ram',
+    label: 'Cluster Memory Util',
+    value: '38.4',
+    unit: '%',
+    trend: +1.5,
+    icon: 'memory',
+    status: 'healthy',
+    category: 'system',
+  },
+];
+
+export const ROI_SCENARIOS_DATA: RoiScenario[] = [
+  {
+    scenario_id: 'scen-conservative',
+    name: 'Conservative ($2,500 Budget)',
+    budget: 2500,
+    unit_margin: 45,
+    targeting_strategy: 'persuadables_only',
+    discount_depth: 10,
+    customers_targeted: 250,
+    projected_incremental_revenue: 11250,
+    net_incremental_profit: 8750,
+    projected_roi_pct: 350.0,
+    risk_adjusted_profit: 8120,
+  },
+  {
+    scenario_id: 'scen-balanced',
+    name: 'Balanced Recommended ($5,000 Budget)',
+    budget: 5000,
+    unit_margin: 45,
+    targeting_strategy: 'persuadables_only',
+    discount_depth: 10,
+    customers_targeted: 382,
+    projected_incremental_revenue: 23400,
+    net_incremental_profit: 18420,
+    projected_roi_pct: 368.4,
+    risk_adjusted_profit: 17150,
+  },
+  {
+    scenario_id: 'scen-aggressive',
+    name: 'Aggressive Scale ($10,000 Budget)',
+    budget: 10000,
+    unit_margin: 45,
+    targeting_strategy: 'persuadables_only',
+    discount_depth: 20,
+    customers_targeted: 620,
+    projected_incremental_revenue: 37800,
+    net_incremental_profit: 27800,
+    projected_roi_pct: 278.0,
+    risk_adjusted_profit: 24600,
+  },
+  {
+    scenario_id: 'scen-naive',
+    name: 'Naive Mass Blast ($10,000 Budget)',
+    budget: 10000,
+    unit_margin: 45,
+    targeting_strategy: 'all_customers',
+    discount_depth: 10,
+    customers_targeted: 1000,
+    projected_incremental_revenue: 9450,
+    net_incremental_profit: -550,
+    projected_roi_pct: -5.5,
+    risk_adjusted_profit: -1800,
+  },
+];
+
+export const SYSTEM_NOTIFICATIONS_DATA: AlertNotification[] = [
+  {
+    id: 'notif-1',
+    title: 'Model Retraining Check Passed',
+    message: 'Rolling 30-day drift telemetry verified. Maximum covariate PSI is 0.082 (Threshold: 0.20). No retraining required.',
+    timestamp: '10 mins ago',
+    severity: 'success',
+    read: false,
+    category: 'drift',
+  },
+  {
+    id: 'notif-2',
+    title: 'MILP Optimization Converged',
+    message: 'Global optimum reached in 420ms using branch-and-cut. 382 persuadables allocated with zero discount leakage to Sure Things.',
+    timestamp: '2 hours ago',
+    severity: 'info',
+    read: false,
+    category: 'budget',
+  },
+  {
+    id: 'notif-3',
+    title: 'Unconfoundedness Verified',
+    message: 'DoWhy refutation suite executed: Placebo treatment (p=0.89) and Random Common Cause passed within 1% shift bound.',
+    timestamp: '1 day ago',
+    severity: 'success',
+    read: true,
+    category: 'model',
+  },
+  {
+    id: 'notif-4',
+    title: 'Synthetic Stream Ingestion Complete',
+    message: '50,000 customer records successfully loaded with non-linear propensity and ground-truth ITE labels.',
+    timestamp: '2 days ago',
+    severity: 'info',
+    read: true,
+    category: 'pipeline',
+  },
+];
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  defaultBudget: 5000,
+  defaultUnitMargin: 45,
+  defaultCurrency: 'USD ($)',
+  confidenceAlpha: 0.05,
+  enableSoundAlerts: false,
+  autoRefreshStream: true,
+  exportFormat: 'csv',
+};

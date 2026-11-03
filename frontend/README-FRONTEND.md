@@ -23,6 +23,23 @@ EconoCausal v2.0 introduces an enterprise-grade quantitative UI system built on 
 
 ---
 
+## 📱 10 Operational Views (`src/components/`)
+
+| View | Purpose |
+|:---|:---|
+| `UploadPipelineView` | Ingestion, schema validation, and parameter configuration |
+| `CausalDiagnosticsView` | Structural DAG, Rosenbaum bounds, Cinelli-Hazlett partial R², refutations |
+| `UpliftQiniView` | CausalForestDML CATE distributions, Qini curves, AUQC |
+| `BudgetAllocationView` | SciPy MILP knapsack optimizer with policy constraints |
+| `ExecutiveDriftView` | Natural language executive summary & PSI/KS drift telemetry |
+| `LiveMetricsView` *(New)* | Real-time KPI wall, inference throughput, and cluster latency stream |
+| `ModelComparisonView` *(New)* | Comparative benchmark matrix (PEHE, AUQC, latency) vs S/T/X learners |
+| `ShapExplainabilityView` *(New)* | TreeSHAP feature attribution waterfall & global CATE drivers |
+| `SegmentExplorerView` *(New)* | 2x2 Causal quadrant matrix & customer demographic micro-targeting |
+| `RoiSimulatorView` *(New)* | Monte Carlo ROI playground with interactive budget and margin sliders |
+
+---
+
 ## 🪝 Reusable Custom Hooks (`src/hooks/`)
 
 | Hook | Purpose |
@@ -57,6 +74,19 @@ EconoCausal v2.0 introduces an enterprise-grade quantitative UI system built on 
 | `WelcomeBanner` | Dismissible onboarding guide for first-time operators |
 | `OfflineBanner` | Global floating alert for network disconnection events |
 | `Error404` | High-visibility missing route placeholder view |
+| `GlobalSearch` *(New)* | Omnisearch command palette (⌘K) for jumping to views & actions |
+| `NotificationsPanel` *(New)* | Slide-out alert notification drawer with category filtering |
+| `SettingsPanel` *(New)* | User preference configuration (budget defaults, confidence α, theme) |
+| `MobileMenu` *(New)* | Touch-friendly responsive drawer (min 44px touch targets, A11y compliant) |
+
+---
+
+## 🌐 Progressive Web App (PWA) & Offline Engine
+
+- **Service Worker (`public/service-worker.js`)**: Network-first navigation with asset caching.
+- **Offline Fallback (`public/offline.html`)**: Branded offline screen with automated reconnection polling.
+- **Web App Manifest (`public/manifest.json`)**: Standalone display mode with 192x192 and 512x512 icons.
+- **Search Engine Optimization**: `robots.txt` and `sitemap.xml` mapping all 10 application views.
 
 ---
 

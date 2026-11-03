@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { ScreenTab } from '../types.ts';
 import { apiService } from '../apiService.ts';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../hooks/useTheme.ts';
+import { TAB_CATEGORIES } from '../constants/routes.ts';
+import { SYSTEM_NOTIFICATIONS_DATA } from '../mockData.ts';
 
 interface HeaderProps {
   currentTab: ScreenTab;
   onSelectTab: (tab: ScreenTab) => void;
   onOpenApiDocs: () => void;
   onRunPipeline: () => void;
+  onOpenSearch: () => void;
+  onOpenNotifications: () => void;
+  onOpenSettings: () => void;
   isPipelineRunning: boolean;
+  onToggleMobileMenu: () => void;
+  isMobileMenuOpen: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,11 +23,15 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   onOpenApiDocs,
   onRunPipeline,
+  onOpenSearch,
+  onOpenNotifications,
+  onOpenSettings,
   isPipelineRunning,
+  onToggleMobileMenu,
 }) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isBackendLive, setIsBackendLive] = useState<boolean | null>(null);
   const { toggleTheme, isDark } = useTheme();
+  const unreadAlerts = SYSTEM_NOTIFICATIONS_DATA.filter((n) => !n.read).length;
 
   useEffect(() => {
     let mounted = true;
@@ -36,19 +47,13 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, []);
 
-  const tabs: { id: ScreenTab; label: string }[] = [
-    { id: 'upload-pipeline', label: 'Upload & Pipeline' },
-    { id: 'causal-diagnostics', label: 'Causal Diagnostics' },
-    { id: 'uplift-qini', label: 'Uplift & Qini' },
-    { id: 'budget-allocation', label: 'Budget Allocation' },
-    { id: 'executive-summary-drift', label: 'Executive Summary & Drift' },
-  ];
-
   return (
-    <header className="fixed top-0 w-full z-40 bg-white/95 backdrop-blur-md border-b border-[#bec8ce]/50 shadow-[0_1px_3px_rgba(19,29,32,0.04)]">
-      <div className="w-full px-6 sm:px-10 xl:px-14 flex flex-col justify-between">
-        <div className="h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 lg:gap-6">
+    <header className="fixed top-0 w-full z-40 bg-white/95 dark:bg-[#111e22]/95 backdrop-blur-md border-b border-[#bec8ce]/50 dark:border-[#2a3a3f] shadow-[0_1px_3px_rgba(19,29,32,0.04)]">
+      <div className="w-full px-4 sm:px-8 xl:px-12 flex flex-col justify-between">
+        {/* Top Bar */}
+        <div className="h-16 flex items-center justify-between gap-3 sm:gap-4">
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3 sm:gap-5">
             <div
               className="flex items-center gap-2.5 cursor-pointer select-none"
               onClick={() => onSelectTab('upload-pipeline')}
@@ -57,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
                 Ec
               </div>
               <div className="flex flex-col">
-                <span className="font-serif text-lg font-semibold tracking-tight text-[#131d20] leading-none">
+                <span className="font-serif text-lg font-semibold tracking-tight text-[#131d20] dark:text-[#e2ecef] leading-none">
                   EconoCausal
                 </span>
                 <span className="font-label-code text-[10px] text-[#2e94b9] uppercase tracking-wider mt-0.5">
@@ -66,24 +71,69 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
 
-            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded border border-[#bec8ce]/50 bg-[#eaf5f9] text-xs">
+            {/* Campaign Pill */}
+            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded border border-[#bec8ce]/50 dark:border-[#2a3a3f] bg-[#eaf5f9] dark:bg-[#1a2b30] text-xs">
               <span className="w-2 h-2 rounded-full bg-[#2e94b9]"></span>
-              <span className="font-label-code text-slate-500">Campaign:</span>
-              <span className="font-label-code text-[#131d20] font-semibold">
+              <span className="font-label-code text-slate-500 dark:text-slate-400">Campaign:</span>
+              <span className="font-label-code text-[#131d20] dark:text-[#e2ecef] font-semibold">
                 Q4 Persuadable Promo • Synthetic Retail 50k
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded border border-[#bec8ce]/50 bg-[#eaf5f9] text-[#475053] font-label-code text-xs">
+          {/* Right Action Tools */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Quick Search ⌘K */}
+            <button
+              onClick={onOpenSearch}
+              type="button"
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#bec8ce]/50 dark:border-[#2a3a3f] bg-[#f1fbff] dark:bg-[#1a2b30] hover:bg-[#eaf5f9] text-xs text-[#475053] dark:text-[#a8b8be] font-mono transition-colors"
+              title="Search views, models, and actions (⌘K)"
+            >
+              <span className="material-symbols-outlined text-sm text-[#006481] dark:text-[#2e94b9]">search</span>
+              <span className="text-[11px]">Quick Search</span>
+              <kbd className="px-1.5 py-0.2 bg-white dark:bg-[#111e22] border border-[#bec8ce]/60 dark:border-[#2a3a3f] rounded text-[10px]">
+                ⌘K
+              </kbd>
+            </button>
+
+            {/* Live Backend Status */}
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded border border-[#bec8ce]/50 dark:border-[#2a3a3f] bg-[#eaf5f9] dark:bg-[#1a2b30] text-[#475053] dark:text-[#a8b8be] font-label-code text-xs">
               <span className={`w-2 h-2 rounded-full ${isBackendLive ? 'bg-emerald-500 animate-pulse' : isBackendLive === false ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
-              <span>{isBackendLive ? 'API: LIVE (FastAPI:8000)' : 'API: MOCK (Offline)'}</span>
+              <span>{isBackendLive ? 'API: LIVE' : 'API: MOCK'}</span>
             </div>
 
+            {/* Notifications Button */}
+            <button
+              onClick={onOpenNotifications}
+              type="button"
+              className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-[#bec8ce]/50 dark:border-[#2a3a3f] hover:bg-[#eaf5f9] dark:hover:bg-[#1a2b30] text-[#475053] dark:text-[#a8b8be] transition-colors"
+              title="Notifications"
+              aria-label="View notifications"
+            >
+              <span className="material-symbols-outlined text-base">notifications</span>
+              {unreadAlerts > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold font-mono flex items-center justify-center">
+                  {unreadAlerts}
+                </span>
+              )}
+            </button>
+
+            {/* Settings Button */}
+            <button
+              onClick={onOpenSettings}
+              type="button"
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#bec8ce]/50 dark:border-[#2a3a3f] hover:bg-[#eaf5f9] dark:hover:bg-[#1a2b30] text-[#475053] dark:text-[#a8b8be] transition-colors"
+              title="Preferences & Settings"
+              aria-label="Open settings"
+            >
+              <span className="material-symbols-outlined text-base">settings</span>
+            </button>
+
+            {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="flex items-center justify-center w-8 h-8 rounded border border-[#bec8ce]/50 hover:bg-[#eaf5f9] dark:hover:bg-[#2a3a3f] text-[#475053] dark:text-[#a8b8be] transition-colors cursor-pointer"
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#bec8ce]/50 dark:border-[#2a3a3f] hover:bg-[#eaf5f9] dark:hover:bg-[#1a2b30] text-[#475053] dark:text-[#a8b8be] transition-colors cursor-pointer"
               title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               type="button"
               aria-label="Toggle dark mode"
@@ -91,20 +141,22 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="material-symbols-outlined text-base">{isDark ? 'light_mode' : 'dark_mode'}</span>
             </button>
 
+            {/* API Docs Modal Trigger */}
             <button
               onClick={onOpenApiDocs}
-              className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#bec8ce]/50 hover:bg-[#eaf5f9] text-[#475053] hover:text-[#131d20] font-label-code text-xs transition-colors cursor-pointer"
+              className="hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#bec8ce]/50 dark:border-[#2a3a3f] hover:bg-[#eaf5f9] dark:hover:bg-[#1a2b30] text-[#475053] dark:text-[#a8b8be] font-label-code text-xs transition-colors cursor-pointer"
               title="Inspect OpenAPI Microservice Endpoints"
               type="button"
             >
               <span className="material-symbols-outlined text-sm">terminal</span>
-              <span className="hidden md:inline">API Docs</span>
+              <span>API Specs</span>
             </button>
 
+            {/* Run Pipeline Button */}
             <button
               onClick={onRunPipeline}
               disabled={isPipelineRunning}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded font-medium text-xs text-white tracking-wide shadow-xs transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium text-xs text-white tracking-wide shadow-xs transition-all cursor-pointer ${
                 isPipelineRunning
                   ? 'bg-[#2e94b9] opacity-80 cursor-wait'
                   : 'bg-[#006481] hover:bg-[#007ea2] active:scale-95'
@@ -114,79 +166,65 @@ export const Header: React.FC<HeaderProps> = ({
               <span className={`material-symbols-outlined text-sm ${isPipelineRunning ? 'animate-spin' : ''}`}>
                 {isPipelineRunning ? 'sync' : 'play_arrow'}
               </span>
-              <span>{isPipelineRunning ? 'Fitting Models...' : 'Run Pipeline'}</span>
+              <span className="hidden sm:inline">{isPipelineRunning ? 'Fitting...' : 'Run Pipeline'}</span>
             </button>
 
-            <div className="flex items-center gap-2.5 pl-3 border-l border-[#bec8ce]/50">
+            {/* User Avatar */}
+            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-[#bec8ce]/50 dark:border-[#2a3a3f]">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#006481] to-[#2e94b9] text-white flex items-center justify-center font-semibold text-xs shadow-xs ring-2 ring-[#006481]/20">
                 AS
               </div>
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-xs font-semibold text-[#131d20] leading-tight">Anmol Soni</span>
-                <span className="font-label-code text-[10px] uppercase text-[#2e94b9] font-medium">Lead Quant</span>
-              </div>
             </div>
 
+            {/* Mobile Hamburger Menu Toggle */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-1.5 text-slate-600 hover:text-slate-900 rounded focus:outline-none"
-              aria-label="Toggle Navigation"
+              onClick={onToggleMobileMenu}
+              className="lg:hidden min-h-[44px] min-w-[44px] p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 rounded-lg flex items-center justify-center"
+              aria-label="Toggle Mobile Navigation"
               type="button"
             >
-              <span className="material-symbols-outlined text-xl">
-                {mobileMenuOpen ? 'close' : 'menu'}
-              </span>
+              <span className="material-symbols-outlined text-2xl">menu</span>
             </button>
           </div>
         </div>
 
-        <div className="hidden lg:flex h-11 items-center justify-between border-t border-[#bec8ce]/40">
-          <nav className="flex items-center gap-1 h-full">
-            {tabs.map((tab) => {
+        {/* Tab Navigation Bar (Desktop & Tablet) */}
+        <div className="hidden lg:flex h-11 items-center justify-between border-t border-[#bec8ce]/40 dark:border-[#2a3a3f] overflow-x-auto no-scrollbar">
+          <nav className="flex items-center gap-1 h-full min-w-max">
+            {TAB_CATEGORIES.flatMap((cat) => cat.tabs).map((tab) => {
               const isActive = currentTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => onSelectTab(tab.id)}
                   type="button"
-                  className={`h-full px-4 flex items-center text-xs font-medium transition-colors cursor-pointer ${
+                  className={`h-full px-3.5 flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                     isActive
-                      ? 'text-[#006481] bg-[#eaf5f9] font-semibold shadow-[inset_0_-2px_0_0_#2e94b9]'
-                      : 'text-[#576063] hover:text-[#131d20] hover:bg-[#eaf5f9]/50'
+                      ? 'text-[#006481] dark:text-[#2e94b9] bg-[#eaf5f9] dark:bg-[#1a2b30] font-semibold shadow-[inset_0_-2px_0_0_#2e94b9]'
+                      : 'text-[#576063] dark:text-[#a8b8be] hover:text-[#131d20] dark:hover:text-white hover:bg-[#eaf5f9]/50 dark:hover:bg-[#1a2b30]/50'
                   }`}
                 >
-                  {tab.label}
+                  <span className={`material-symbols-outlined text-sm ${isActive ? 'text-[#006481] dark:text-[#2e94b9]' : 'text-slate-400'}`}>
+                    {tab.icon}
+                  </span>
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded font-bold ${
+                      isActive ? 'bg-[#006481] text-white' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                    }`}>
+                      {tab.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </nav>
-          <div className="flex items-center gap-2 text-slate-500 font-label-code text-xs">
+
+          <div className="hidden 2xl:flex items-center gap-2 text-slate-500 dark:text-slate-400 font-label-code text-xs pl-4">
             <span className={`inline-block w-2 h-2 rounded-full ${isBackendLive ? 'bg-emerald-500' : 'bg-[#2e94b9]'}`}></span>
-            <span>{isBackendLive ? 'BACKEND: CONNECTED' : 'CLUSTER: ACTIVE (EVAL-NODE-03)'}</span>
+            <span>{isBackendLive ? 'CLUSTER: CONNECTED' : 'CLUSTER: ACTIVE (EVAL-NODE-03)'}</span>
           </div>
         </div>
-
-        {mobileMenuOpen && (
-          <div className="lg:hidden py-2 border-t border-[#bec8ce]/40 flex flex-col gap-1 bg-white">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  onSelectTab(tab.id);
-                  setMobileMenuOpen(false);
-                }}
-                type="button"
-                className={`w-full text-left px-3 py-2 text-xs font-medium rounded ${
-                  currentTab === tab.id
-                    ? 'bg-[#eaf5f9] text-[#006481] font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </header>
   );
