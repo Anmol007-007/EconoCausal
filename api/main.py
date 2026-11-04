@@ -9,6 +9,16 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from api.config import settings
+from api.middleware import (
+    SecurityHeadersMiddleware,
+    RateLimiterMiddleware,
+    TimingMiddleware,
+    CorrelationIdMiddleware,
+)
+from api.sanitizer import sanitize_csv_data, validate_filename
+from api.routers import auth_router, ml_router
+
 from src.data_gen import (
     generate_data,
     compute_true_uplift,
@@ -42,15 +52,29 @@ from src.optimizer import (
     calculate_wasserstein,
 )
 
-app = FastAPI(title="EconoCausal API", version="1.0.0")
+app = FastAPI(
+    title="EconoCausal API",
+    version="2.0.0",
+    description="Enterprise Causal AI & Double Machine Learning Microservice Platform",
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimiterMiddleware)
+app.add_middleware(TimingMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
+
+# Include Authentication & Advanced ML Routers
+app.include_router(auth_router, prefix="/api")
+app.include_router(auth_router, prefix="/api/v2")
+app.include_router(ml_router, prefix="/api")
+app.include_router(ml_router, prefix="/api/v2")
 
 _STATE: Dict[str, Any] = {
     "df": None,
@@ -157,6 +181,7 @@ async def upload_dataset(
             raw_df = pd.read_parquet(io.BytesIO(content))
         else:
             raw_df = pd.read_csv(io.BytesIO(content))
+        raw_df = sanitize_csv_data(raw_df)
         df, report = validate_and_impute_dataset(raw_df)
     elif benchmark is not None and str(benchmark).strip():
         raw_df = load_benchmark_dataset(name=benchmark, n=n_records, seed=seed)

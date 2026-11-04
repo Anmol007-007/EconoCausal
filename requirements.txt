@@ -8,11 +8,15 @@ econml>=0.15.0
 dowhy>=0.11.1
 statsmodels>=0.14.0
 
-# API & Server
+# API, Auth & Security
 fastapi>=0.110.0
 uvicorn>=0.28.0
 pydantic>=2.6.0
 python-multipart>=0.0.9
+pyjwt>=2.8.0
+passlib>=1.7.4
+bcrypt>=4.1.0
+websockets>=12.0
 
 # Testing & Utilities
 pytest>=8.0.0
