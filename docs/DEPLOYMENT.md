@@ -50,6 +50,40 @@ The application will be live at:
 - **Interactive UI Dashboard**: [http://localhost:8000](http://localhost:8000)
 - **Interactive OpenAPI Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **System Healthcheck Probe**: [http://localhost:8000/health](http://localhost:8000/health)
+- **Prometheus Telemetry Metrics**: [http://localhost:9090](http://localhost:9090)
+- **Grafana Enterprise Observability**: [http://localhost:3001](http://localhost:3001) (User: `admin`, Pass: `econografana2026!`)
+
+---
+
+## 2.1 Database Operations & Alembic Migrations
+
+EconoCausal supports enterprise PostgreSQL for experiment tracking, pipeline audit trails, and user identity management:
+
+```bash
+# Apply pending schema migrations
+alembic upgrade head
+
+# Create a new migration revision
+alembic revision --autogenerate -m "add_new_table"
+
+# Seed default admin user and benchmark experiment
+python scripts/seed_db.py
+```
+
+---
+
+## 2.2 Observability & Monitoring Setup
+
+EconoCausal ships with production-ready observability out-of-the-box:
+1. **Structured JSON Logs**: Handled via `structlog` with correlation IDs injected via `X-Request-ID`.
+2. **Prometheus Metrics**: Scraped from `/api/metrics`, tracking:
+   - `econocausal_http_requests_total`
+   - `econocausal_http_request_duration_seconds`
+   - `econocausal_ml_training_duration_seconds`
+   - `econocausal_active_websocket_connections`
+   - `econocausal_model_drift_alerts_total`
+3. **Log Analyzer Tool**: Run `python scripts/log_analyzer.py logs/app.log` to parse latency percentiles and error summaries.
+
 
 ---
 

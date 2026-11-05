@@ -24,6 +24,8 @@ class UserResponse(UserBase):
 class UserInDB(UserResponse):
     hashed_password: str
 
+User = UserInDB
+
 class Token(BaseModel):
     access_token: str
     refresh_token: str

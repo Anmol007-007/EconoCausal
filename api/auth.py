@@ -14,6 +14,12 @@ def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt(rounds=12)
     return bcrypt.hashpw(password.encode("utf-8")[:72], salt).decode("utf-8")
 
+hash_password = get_password_hash
+
+def hash_api_key(key: str) -> str:
+    import hashlib
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
         return bcrypt.checkpw(

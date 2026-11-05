@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 
 class Settings:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "econocausal_super_secure_secret_key_change_in_production_2026!")
@@ -16,6 +16,15 @@ class Settings:
 
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
     DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./econocausal.db")
+    DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "5"))
+    DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+    DB_POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+
+    PROMETHEUS_METRICS_ENABLED: bool = os.getenv("PROMETHEUS_METRICS_ENABLED", "true").lower() in ("true", "1", "yes")
+    SENTRY_DSN: Optional[str] = os.getenv("SENTRY_DSN", None)
 
     @property
     def CORS_ORIGINS(self) -> List[str]:
@@ -35,4 +44,3 @@ settings = Settings()
 
 def get_settings() -> Settings:
     return settings
-

@@ -1,0 +1,29 @@
+groups:
+  - name: econocausal_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: (sum(rate(econocausal_http_requests_total{status_code=~"5.."}[5m])) / sum(rate(econocausal_http_requests_total[5m]))) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "EconoCausal API HTTP 5xx error rate exceeds 5%"
+          description: "Current error rate is {{ $value | printf \"%.2f\" }}% over the last 5 minutes."
+
+      - alert: HighP99Latency
+        expr: histogram_quantile(0.99, sum(rate(econocausal_http_request_duration_seconds_bucket[5m])) by (le)) > 2.0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "EconoCausal API p99 latency exceeds 2.0s"
+          description: "Current p99 latency is {{ $value | printf \"%.2f\" }}s."
+
+      - alert: ModelDriftAnomalyDetected
+        expr: increase(econocausal_model_drift_alerts_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Feature covariate drift detected in production inference stream"
+          description: "One or more features exceeded PSI/Wasserstein threshold within the last 10 minutes."

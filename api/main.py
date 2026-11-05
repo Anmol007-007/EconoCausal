@@ -1,23 +1,31 @@
 from __future__ import annotations
+from contextlib import asynccontextmanager
 import io
 from pathlib import Path
 import time
 from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from api.config import settings
+from api.logging_config import configure_logging, get_logger, request_id_ctx
+from api.exceptions import EconoCausalException
 from api.middleware import (
     SecurityHeadersMiddleware,
     RateLimiterMiddleware,
     TimingMiddleware,
     CorrelationIdMiddleware,
+    RequestLoggingMiddleware,
 )
 from api.sanitizer import sanitize_csv_data, validate_filename
-from api.routers import auth_router, ml_router
+from api.routers import auth_router, ml_router, experiments_router
+from api.monitoring.metrics import export_metrics
+from database.base import init_db
 
 from src.data_gen import (
     generate_data,
@@ -52,10 +60,25 @@ from src.optimizer import (
     calculate_wasserstein,
 )
 
+logger = get_logger("api.main")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    configure_logging(settings.ENVIRONMENT, settings.LOG_LEVEL)
+    logger.info("application_startup", environment=settings.ENVIRONMENT, version="2.0.0")
+    try:
+        await init_db()
+        logger.info("database_initialized")
+    except Exception as e:
+        logger.warning("database_initialization_skipped", error=str(e))
+    yield
+    logger.info("application_shutdown")
+
 app = FastAPI(
     title="EconoCausal API",
     version="2.0.0",
     description="Enterprise Causal AI & Double Machine Learning Microservice Platform",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -68,13 +91,79 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimiterMiddleware)
 app.add_middleware(TimingMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
-# Include Authentication & Advanced ML Routers
+# Custom Exception Handlers
+@app.exception_handler(EconoCausalException)
+async def econocausal_exception_handler(request: Request, exc: EconoCausalException) -> JSONResponse:
+    req_id = getattr(request.state, "request_id", None) or request_id_ctx.get()
+    logger.warning(
+        "business_exception",
+        error_code=exc.error_code,
+        message=exc.message,
+        status_code=exc.status_code,
+        request_id=req_id,
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "error_code": exc.error_code,
+            "message": exc.message,
+            "details": exc.details,
+            "request_id": req_id,
+            "timestamp": time.time(),
+        },
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    req_id = getattr(request.state, "request_id", None) or request_id_ctx.get()
+    errors = []
+    for err in exc.errors():
+        loc = " -> ".join(str(l) for l in err.get("loc", []))
+        errors.append({"field": loc, "message": err.get("msg")})
+    logger.warning("validation_error", errors=errors, request_id=req_id)
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "status": "error",
+            "error_code": "VALIDATION_ERROR",
+            "message": "Input validation failed. Please check the supplied fields.",
+            "errors": errors,
+            "request_id": req_id,
+            "timestamp": time.time(),
+        },
+    )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    req_id = getattr(request.state, "request_id", None) or request_id_ctx.get()
+    logger.error("unhandled_server_exception", error=str(exc), exc_info=True, request_id=req_id)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "status": "error",
+            "error_code": "INTERNAL_SERVER_ERROR",
+            "message": "An unexpected server error occurred. Please contact system support.",
+            "request_id": req_id,
+            "timestamp": time.time(),
+        },
+    )
+
+# Include Authentication, Advanced ML & Experiments Routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(auth_router, prefix="/api/v2")
 app.include_router(ml_router, prefix="/api")
 app.include_router(ml_router, prefix="/api/v2")
+app.include_router(experiments_router, prefix="/api")
+app.include_router(experiments_router, prefix="/api/v2")
+
+@app.get("/metrics")
+async def root_metrics_endpoint() -> Response:
+    data, content_type = export_metrics()
+    return Response(content=data, media_type=content_type)
 
 _STATE: Dict[str, Any] = {
     "df": None,
@@ -177,6 +266,7 @@ async def upload_dataset(
     if file is not None:
         content = await file.read()
         filename = file.filename or "data.csv"
+        validate_filename(filename)
         if filename.endswith(".parquet"):
             raw_df = pd.read_parquet(io.BytesIO(content))
         else:
@@ -443,7 +533,6 @@ def get_executive_summary() -> Dict[str, Any]:
     _STATE["summary_cache"] = summary
     return summary
 
-
 frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
     from fastapi.responses import FileResponse
@@ -455,7 +544,7 @@ if frontend_dist.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json") or full_path.startswith("metrics"):
             raise HTTPException(status_code=404, detail="API endpoint not found")
         file_path = frontend_dist / full_path
         if file_path.is_file():
@@ -464,4 +553,3 @@ if frontend_dist.exists():
         if index_file.exists():
             return FileResponse(str(index_file))
         raise HTTPException(status_code=404, detail="Frontend build not found")
-

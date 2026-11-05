@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alertmanager_rules.yml"
+
+scrape_configs:
+  - job_name: "econocausal-api"
+    metrics_path: "/api/metrics"
+    static_configs:
+      - targets: ["api:8000", "host.docker.internal:8000"]
+        labels:
+          environment: "production"
+          service: "econocausal-backend"
