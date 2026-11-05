@@ -255,3 +255,4 @@ async def get_system_logs(
 async def metrics_endpoint() -> Response:
     data, content_type = export_metrics()
     return Response(content=data, media_type=content_type)
+

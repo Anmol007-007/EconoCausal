@@ -56,3 +56,4 @@ class UserRepository:
         query = select(UserDB).offset(offset).limit(limit)
         result = await self.session.execute(query)
         return list(result.scalars().all())
+

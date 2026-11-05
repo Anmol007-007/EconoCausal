@@ -93,3 +93,4 @@ def configure_logging(environment: str = "production", log_level: str = "INFO") 
 
 def get_logger(name: str = "econocausal") -> Any:
     return structlog.get_logger(name)
+

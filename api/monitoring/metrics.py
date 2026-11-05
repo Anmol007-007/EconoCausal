@@ -51,3 +51,4 @@ DB_QUERY_DURATION_SECONDS = Histogram(
 
 def export_metrics() -> tuple[bytes, str]:
     return generate_latest(REGISTRY), CONTENT_TYPE_LATEST
+

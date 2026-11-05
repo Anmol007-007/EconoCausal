@@ -46,3 +46,4 @@ class AuditRepository:
         query = query.order_by(desc(AuditLog.timestamp)).offset(offset).limit(limit)
         result = await self.session.execute(query)
         return list(result.scalars().all())
+

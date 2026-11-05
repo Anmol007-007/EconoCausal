@@ -52,3 +52,4 @@ def test_validation_error_handler():
 def test_unhandled_route_not_found():
     response = client.get("/api/nonexistent/route")
     assert response.status_code == 404
+

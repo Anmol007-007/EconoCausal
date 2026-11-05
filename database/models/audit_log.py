@@ -18,3 +18,4 @@ class AuditLog(Base):
     status_code: Mapped[int] = mapped_column(Integer, default=200)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     extra_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+

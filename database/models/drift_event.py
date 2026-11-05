@@ -17,3 +17,4 @@ class DriftEvent(Base):
     ks_stat: Mapped[float] = mapped_column(Float, default=0.0)
     is_drift: Mapped[bool] = mapped_column(Boolean, default=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+

@@ -69,3 +69,4 @@ def test_experiments_workflow(admin_headers):
     # 8. Verify deleted
     get_del = client.get(f"/api/experiments/{exp_id}", headers=admin_headers)
     assert get_del.status_code == 404
+

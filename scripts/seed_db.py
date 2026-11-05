@@ -70,3 +70,4 @@ async def seed_database() -> None:
 
 if __name__ == "__main__":
     asyncio.run(seed_database())
+

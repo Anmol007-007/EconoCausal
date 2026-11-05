@@ -101,3 +101,4 @@ def downgrade() -> None:
     op.drop_table('pipeline_runs')
     op.drop_table('experiments')
     op.drop_table('users')
+

@@ -51,3 +51,4 @@ class PipelineRunRepository:
         )
         result = await self.session.execute(query)
         return list(result.scalars().all())
+

@@ -9,3 +9,4 @@ __all__ = [
     "UserRepository",
     "AuditRepository",
 ]
+

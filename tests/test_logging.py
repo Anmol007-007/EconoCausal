@@ -50,3 +50,4 @@ def test_admin_logs_endpoint_authorized():
     assert data["status"] == "success"
     assert "logs" in data
     assert isinstance(data["logs"], list)
+

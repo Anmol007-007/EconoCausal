@@ -62,3 +62,4 @@ async def run_full_system_diagnostic(state: Dict[str, Any], db_health: Optional[
             "database": db_health or {"status": "ready", "driver": "sqlite/postgres"},
         },
     }
+

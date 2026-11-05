@@ -46,3 +46,4 @@ class RateLimitExceededError(EconoCausalException):
 class DatabaseError(EconoCausalException):
     def __init__(self, message: str = "A database operation failed.", details: Optional[Dict[str, Any]] = None):
         super().__init__(message=message, error_code="DATABASE_ERROR", status_code=500, details=details)
+

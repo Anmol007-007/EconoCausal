@@ -205,7 +205,6 @@ class DriftRequest(BaseModel):
     stream_days: int = Field(default=30, ge=7, le=60)
     drift_shock_day: int = Field(default=20, ge=5, le=55)
 
-@app.get("/")
 @app.get("/health")
 @app.get("/api/health")
 def health_check() -> Dict[str, Any]:
@@ -541,6 +540,13 @@ if frontend_dist.exists():
     assets_dir = frontend_dist / "assets"
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/")
+    async def serve_index():
+        index_file = frontend_dist / "index.html"
+        if index_file.exists():
+            return FileResponse(str(index_file))
+        return {"status": "healthy", "service": "EconoCausal API"}
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):

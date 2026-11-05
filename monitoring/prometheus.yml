@@ -13,3 +13,4 @@ scrape_configs:
         labels:
           environment: "production"
           service: "econocausal-backend"
+

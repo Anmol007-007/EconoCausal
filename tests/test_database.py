@@ -99,3 +99,4 @@ async def test_audit_crud(async_session: AsyncSession):
     logs = await repo.list_logs(action="TEST_ACTION")
     assert len(logs) == 1
     assert logs[0].resource == "/api/test"
+
