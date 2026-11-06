@@ -15,10 +15,15 @@ services:
       - ENVIRONMENT=production
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql+asyncpg://econouser:econopass2026@postgres:5432/econocausal_db
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_ENABLED=true
+      - CACHE_TTL_SECONDS=300
     env_file:
       - .env.example
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -58,6 +63,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: econocausal-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   prometheus:
     image: prom/prometheus:v2.50.1
     container_name: econocausal-prometheus
@@ -93,3 +111,4 @@ services:
 volumes:
   pgdata:
   grafana_data:
+  redis_data:

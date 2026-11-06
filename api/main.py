@@ -23,9 +23,11 @@ from api.middleware import (
     RequestLoggingMiddleware,
 )
 from api.sanitizer import sanitize_csv_data, validate_filename
-from api.routers import auth_router, ml_router, experiments_router
+from api.routers import auth_router, ml_router, experiments_router, cache_admin_router
 from api.monitoring.metrics import export_metrics
 from database.base import init_db
+from database.cache import init_cache, close_cache, flush_pattern
+from database.cache_keys import all_data_keys_pattern
 
 from src.data_gen import (
     generate_data,
@@ -71,7 +73,13 @@ async def lifespan(app: FastAPI):
         logger.info("database_initialized")
     except Exception as e:
         logger.warning("database_initialization_skipped", error=str(e))
+    try:
+        await init_cache()
+        logger.info("cache_initialized")
+    except Exception as e:
+        logger.warning("cache_initialization_skipped", error=str(e))
     yield
+    await close_cache()
     logger.info("application_shutdown")
 
 app = FastAPI(
@@ -159,6 +167,8 @@ app.include_router(ml_router, prefix="/api")
 app.include_router(ml_router, prefix="/api/v2")
 app.include_router(experiments_router, prefix="/api")
 app.include_router(experiments_router, prefix="/api/v2")
+app.include_router(cache_admin_router, prefix="/api")
+app.include_router(cache_admin_router, prefix="/api/v2")
 
 @app.get("/metrics")
 async def root_metrics_endpoint() -> Response:
@@ -287,6 +297,12 @@ async def upload_dataset(
     _STATE["refutation_results"] = None
     _STATE["diagnostics_cache"] = None
     _STATE["summary_cache"] = None
+
+    try:
+        invalidated = await flush_pattern(all_data_keys_pattern())
+        logger.info("cache_invalidated_on_upload", deleted_keys=invalidated)
+    except Exception as exc:
+        logger.warning("cache_invalidation_failed", error=str(exc))
 
     req_cols = ["past_spend", "recency_days", "loyalty_tier", "category_affinity", "discount", "purchase"]
     present = [c for c in req_cols if c in df.columns]

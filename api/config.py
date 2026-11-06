@@ -26,6 +26,10 @@ class Settings:
     PROMETHEUS_METRICS_ENABLED: bool = os.getenv("PROMETHEUS_METRICS_ENABLED", "true").lower() in ("true", "1", "yes")
     SENTRY_DSN: Optional[str] = os.getenv("SENTRY_DSN", None)
 
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    CACHE_TTL_SECONDS: int = int(os.getenv("CACHE_TTL_SECONDS", "300"))
+    CACHE_ENABLED: bool = os.getenv("CACHE_ENABLED", "true").lower() in ("true", "1", "yes")
+
     @property
     def CORS_ORIGINS(self) -> List[str]:
         raw = os.getenv("CORS_ORIGINS", "*")
