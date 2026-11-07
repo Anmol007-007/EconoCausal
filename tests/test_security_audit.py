@@ -133,3 +133,4 @@ class TestFormulaInjectionSanitization:
         assert sanitized["col_formula"].iloc[1].startswith("'")
         assert sanitized["col_formula"].iloc[3].startswith("'")
         assert sanitized["col_formula"].iloc[4] == "safe_value"
+

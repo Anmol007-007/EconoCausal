@@ -24,3 +24,4 @@ test.describe('Theme & Dark Mode Persistence Flow', () => {
     await expect(htmlElement).toBeVisible();
   });
 });
+

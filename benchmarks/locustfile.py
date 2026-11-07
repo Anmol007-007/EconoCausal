@@ -51,3 +51,4 @@ class EconoCausalUser(HttpUser):
             "min_margin_floor": 0.0,
         }
         self.client.post("/api/allocate", json=payload, headers=self.headers)
+
