@@ -10,6 +10,52 @@ from api.models.user import UserInDB, UserCreate, TokenData
 # In-memory user store for stateful auth operations
 _USERS_DB: Dict[str, UserInDB] = {}
 
+# Account lockout tracking (prevent brute-force attacks)
+_FAILED_LOGINS: Dict[str, Dict[str, Any]] = {}
+MAX_FAILED_ATTEMPTS: int = 5
+LOCKOUT_DURATION_SECONDS: int = 900  # 15 minutes
+
+def validate_password_complexity(password: str) -> bool:
+    if len(password) < 8:
+        return False
+    if not any(c.isupper() for c in password):
+        return False
+    if not any(c.islower() for c in password):
+        return False
+    if not any(c.isdigit() for c in password):
+        return False
+    if not any(c in "@$!%*?&_\\-#^~+=<>()[]{}|" for c in password):
+        return False
+    return True
+
+def is_account_locked(email: str) -> bool:
+    normalized = email.lower().strip()
+    record = _FAILED_LOGINS.get(normalized)
+    if not record:
+        return False
+    if record.get("locked_until", 0) > time.time():
+        return True
+    if record.get("locked_until", 0) <= time.time() and record.get("locked_until", 0) > 0:
+        _FAILED_LOGINS.pop(normalized, None)
+        return False
+    return False
+
+def record_failed_login(email: str) -> None:
+    normalized = email.lower().strip()
+    now = time.time()
+    record = _FAILED_LOGINS.setdefault(normalized, {"count": 0, "first_failed": now, "locked_until": 0})
+    if now - record.get("first_failed", now) > LOCKOUT_DURATION_SECONDS:
+        record["count"] = 1
+        record["first_failed"] = now
+        record["locked_until"] = 0
+    else:
+        record["count"] += 1
+    if record["count"] >= MAX_FAILED_ATTEMPTS:
+        record["locked_until"] = now + LOCKOUT_DURATION_SECONDS
+
+def reset_failed_logins(email: str) -> None:
+    _FAILED_LOGINS.pop(email.lower().strip(), None)
+
 def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt(rounds=12)
     return bcrypt.hashpw(password.encode("utf-8")[:72], salt).decode("utf-8")
@@ -73,10 +119,12 @@ def get_user_by_id(user_id: str) -> Optional[UserInDB]:
     return None
 
 def get_user_by_api_key(api_key: str) -> Optional[UserInDB]:
-    if api_key == settings.MASTER_API_KEY:
+    if not api_key:
+        return None
+    if secrets.compare_digest(settings.MASTER_API_KEY, api_key):
         return get_user_by_email("admin@econocausal.ai")
     for user in _USERS_DB.values():
-        if user.api_key == api_key:
+        if secrets.compare_digest(user.api_key, api_key):
             return user
     return None
 
@@ -84,6 +132,9 @@ def create_user(user_in: UserCreate) -> UserInDB:
     email = user_in.email.lower().strip()
     if email in _USERS_DB:
         raise ValueError("User with this email already exists")
+
+    if not validate_password_complexity(user_in.password):
+        raise ValueError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.")
 
     new_user = UserInDB(
         id=f"usr_{secrets.token_hex(6)}",
@@ -100,11 +151,16 @@ def create_user(user_in: UserCreate) -> UserInDB:
     return new_user
 
 def authenticate_user(email: str, password: str) -> Optional[UserInDB]:
+    if is_account_locked(email):
+        raise ValueError("Account temporarily locked due to excessive failed login attempts. Please try again in 15 minutes.")
     user = get_user_by_email(email)
     if not user:
+        record_failed_login(email)
         return None
     if not verify_password(password, user.hashed_password):
+        record_failed_login(email)
         return None
+    reset_failed_logins(email)
     return user
 
 def create_access_token(data: Dict[str, Any], expires_delta_seconds: Optional[int] = None) -> str:

@@ -42,7 +42,13 @@ def register(user_in: UserCreate):
 
 @router.post("/login", response_model=Token)
 def login(credentials: UserLogin):
-    user = authenticate_user(credentials.email, credentials.password)
+    try:
+        user = authenticate_user(credentials.email, credentials.password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail=str(e),
+        )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
