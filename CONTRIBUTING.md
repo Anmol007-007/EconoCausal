@@ -115,3 +115,4 @@ When writing or modifying code in EconoCausal, please adhere to these core guide
 2. Make atomic, focused commits following Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`).
 3. Push your branch to your fork and open a Pull Request against `main`.
 4. Describe the changes, motivation, test results, and any relevant issue references in the PR description.
+

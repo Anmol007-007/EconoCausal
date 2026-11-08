@@ -197,3 +197,4 @@ Prometheus metrics scrape target exporting HTTP rates, latencies, model duration
 
 ### `GET /health`
 Liveness and readiness health check probe returning application status, database connectivity, and version info.
+

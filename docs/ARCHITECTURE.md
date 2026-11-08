@@ -113,3 +113,4 @@ sequenceDiagram
 | **MILP Budget Allocation (1,000 customers)** | SciPy HiGHS Solver | `35 ms` |
 | **Causal Forest DML Training (1,000 rows, 32 trees)** | EconML + LightGBM | `1.2 – 1.8 s` |
 | **DoWhy Refutation Suite (3 refuters)** | Simulation & Permutations | `2.1 – 2.9 s` |
+

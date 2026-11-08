@@ -66,3 +66,4 @@ EconoCausal is engineered following industry best practices and the **OWASP Top 
 EconoCausal maintains automated security verification in its CI/CD pipeline:
 - **Bandit Security Scanner**: Scans backend Python code for insecure imports, hardcoded secrets, and unsafe execution (`bandit -r api/ src/`).
 - **Security Audit Test Suite**: Automated unit and integration tests (`tests/test_security_audit.py`) validating lockout, complexity rules, constant-time comparisons, and headers on every build.
+

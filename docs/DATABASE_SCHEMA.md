@@ -122,3 +122,4 @@ Monitors feature distribution shifts and treatment effect decay over time.
 |:---|:---|:---|
 | `001_initial_schema` | Base relational tables, foreign keys, and primary keys. | Primary keys, foreign key constraints. |
 | `002_add_indexes` | Performance optimization for query scaling and pagination. | `ix_pipeline_runs_experiment_created` `(experiment_id, created_at)`<br>`ix_experiments_status_created` `(status, created_at)`<br>`ix_audit_logs_user` `(user_id, created_at)`<br>`ix_audit_logs_entity` `(entity_type, entity_id, created_at)`<br>`ix_drift_events_run_detected` `(run_id, detected_at)`<br>`ix_users_email` (unique) |
+

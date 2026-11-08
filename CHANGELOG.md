@@ -80,3 +80,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rolling drift detection engine computing sliding PSI and Wasserstein distances.
   - React + Plotly.js quantitative dashboard with 5 core operational panels.
   - FastAPI initial REST microservice exposing `/upload`, `/uplift`, `/allocate`, `/diagnostics`, `/drift`, and `/summary`.
+
