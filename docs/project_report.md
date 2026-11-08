@@ -245,13 +245,24 @@ By preventing promotional subsidization of organic buyers, EconoCausal preserved
 ## 8. Production Deployment & Cloud Architecture
 
 EconoCausal is containerized via a multi-stage `Dockerfile`:
-- **Stage 1 (Node 20 Alpine)**: Compiles the React 19 Vite SPA.
+- **Stage 1 (Node 20 Alpine)**: Compiles the React 18 Vite SPA.
 - **Stage 2 (Python 3.12 Slim)**: Copies static bundles into FastAPI, runs with unprivileged security user `appuser`, exposes port 8000, and executes embedded `/health` probes.
 - **Zero-Configuration Orchestration**: Configured for local and production deployment via `docker-compose.yml`, Kubernetes deployment manifests, and cloud container platforms (AWS ECS, Google Cloud Run).
 
 ---
 
-## 9. References & Academic Bibliography
+## 9. Phase 2 Enterprise Architecture & Production Hardening (v2.0)
+
+Phase 2 extended EconoCausal into an enterprise-grade cloud-native microservice:
+1. **Security & Cryptography**: Implemented strict OWASP Top 10 controls, constant-time `secrets.compare_digest` token verification, 12-round `bcrypt` hashing with password complexity enforcement, and automated brute-force account lockout (`423 Locked`).
+2. **Asynchronous Persistence Layer**: Integrated PostgreSQL 16 with async SQLAlchemy 2.0 and Alembic schema migrations, supporting study tracking (`experiments`), runs, and append-only compliance audit trails (`audit_logs`).
+3. **Low-Latency Redis Caching**: Reduced repeat diagnostic and summary query latencies to sub-5ms with typed cache keys, connection pooling, and automated cache invalidation on fresh dataset uploads.
+4. **Comprehensive Observability**: Zero-overhead JSON structured logging (`structlog`), Prometheus time-series metric exports (`/metrics`), Grafana dashboards, and AlertManager incident routing.
+5. **Progressive Web Application (PWA)**: Re-architected frontend featuring 10 operational views, unified design tokens, dark mode persistence, and multi-browser Playwright E2E automation.
+
+---
+
+## 10. References & Academic Bibliography
 
 1. **Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C., Newey, W., & Robins, J.** (2018). *Double/debiased machine learning for treatment and structural parameters.* The Econometrics Journal, 21(1), C1-C68.
 2. **Pearl, J.** (2009). *Causality: Models, Reasoning, and Inference* (2nd ed.). Cambridge University Press.
