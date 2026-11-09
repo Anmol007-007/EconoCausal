@@ -22,7 +22,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden">
-          {/* Backdrop */}
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -39,7 +39,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
               className="w-screen max-w-md bg-white dark:bg-[#1a2b30] shadow-2xl border-l border-[#bec8ce]/50 dark:border-[#2a3a3f] flex flex-col justify-between"
             >
-              {/* Header */}
+
               <div>
                 <div className="p-5 border-b border-[#bec8ce]/40 dark:border-[#2a3a3f] flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -64,9 +64,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                   </button>
                 </div>
 
-                {/* Form Body */}
                 <div className="p-5 space-y-5 overflow-y-auto">
-                  {/* Theme Mode */}
+
                   <div>
                     <label className="text-xs font-bold font-mono text-[#131d20] dark:text-[#e2ecef] block mb-1">
                       Visual Interface Theme
@@ -98,7 +97,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     </div>
                   </div>
 
-                  {/* Default Budget */}
                   <div>
                     <label className="text-xs font-bold font-mono text-[#131d20] dark:text-[#e2ecef] block mb-1">
                       Default Campaign Budget ($ USD)
@@ -111,7 +109,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     />
                   </div>
 
-                  {/* Default Unit Margin */}
                   <div>
                     <label className="text-xs font-bold font-mono text-[#131d20] dark:text-[#e2ecef] block mb-1">
                       Default Unit Contribution Margin ($ USD)
@@ -124,7 +121,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     />
                   </div>
 
-                  {/* Confidence Interval Alpha */}
                   <div>
                     <label className="text-xs font-bold font-mono text-[#131d20] dark:text-[#e2ecef] block mb-1">
                       CATE Significance Level (α)
@@ -140,7 +136,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     </select>
                   </div>
 
-                  {/* Export Format Preference */}
                   <div>
                     <label className="text-xs font-bold font-mono text-[#131d20] dark:text-[#e2ecef] block mb-1">
                       Default Report Export Format
@@ -163,7 +158,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     </div>
                   </div>
 
-                  {/* Toggle Streaming Stream */}
                   <div className="flex items-center justify-between pt-2">
                     <div>
                       <span className="text-xs font-bold font-mono text-[#131d20] dark:text-[#e2ecef] block">
@@ -183,7 +177,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="p-5 border-t border-[#bec8ce]/40 dark:border-[#2a3a3f] flex items-center justify-between">
                 <button
                   type="button"

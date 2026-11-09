@@ -34,7 +34,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden">
-          {/* Backdrop */}
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -51,7 +51,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
               className="w-screen max-w-md bg-white dark:bg-[#1a2b30] shadow-2xl border-l border-[#bec8ce]/50 dark:border-[#2a3a3f] flex flex-col"
             >
-              {/* Header */}
+
               <div className="p-5 border-b border-[#bec8ce]/40 dark:border-[#2a3a3f] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <span className="material-symbols-outlined text-[#006481] dark:text-[#2e94b9]">notifications</span>
@@ -86,7 +86,6 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
                 </div>
               </div>
 
-              {/* Filters */}
               <div className="flex items-center gap-1 px-5 py-2.5 border-b border-[#bec8ce]/30 dark:border-[#2a3a3f] bg-[#f1fbff] dark:bg-[#111e22]">
                 {(['all', 'unread', 'drift', 'budget'] as const).map((f) => (
                   <button
@@ -104,7 +103,6 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
                 ))}
               </div>
 
-              {/* Notification List */}
               <div className="flex-1 overflow-y-auto p-5 space-y-3">
                 {filtered.length === 0 ? (
                   <div className="text-center py-12 text-[#6f787e] font-mono text-xs">

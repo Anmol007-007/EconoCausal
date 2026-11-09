@@ -49,7 +49,6 @@ def test_auth_register_new_user():
     assert "id" in data
     assert "api_key" in data
 
-    # Test registration with duplicate email
     dup_res = client.post(
         "/api/auth/register",
         json={
@@ -60,7 +59,6 @@ def test_auth_register_new_user():
     assert dup_res.status_code == 400
 
 def test_auth_me_with_bearer_token():
-    # Login as admin
     login_res = client.post(
         "/api/auth/login",
         json={"email": "admin@econocausal.ai", "password": "AdminPass123!"},
@@ -81,7 +79,6 @@ def test_auth_me_unauthorized():
     assert response.status_code == 401
 
 def test_auth_me_with_api_key():
-    # Login as admin to get API key
     login_res = client.post(
         "/api/auth/login",
         json={"email": "admin@econocausal.ai", "password": "AdminPass123!"},

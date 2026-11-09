@@ -102,7 +102,6 @@ app.add_middleware(TimingMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
-# Custom Exception Handlers
 @app.exception_handler(EconoCausalException)
 async def econocausal_exception_handler(request: Request, exc: EconoCausalException) -> JSONResponse:
     req_id = getattr(request.state, "request_id", None) or request_id_ctx.get()
@@ -160,7 +159,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         },
     )
 
-# Include Authentication, Advanced ML & Experiments Routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(auth_router, prefix="/api/v2")
 app.include_router(ml_router, prefix="/api")

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from __future__ import annotations
 import asyncio
 import sys
@@ -21,7 +20,6 @@ async def seed_database() -> None:
         exp_repo = ExperimentRepository(session)
         run_repo = PipelineRunRepository(session)
 
-        # Check existing admin
         admin = await user_repo.get_by_email("admin@econocausal.ai")
         if not admin:
             print("Seeding admin user: admin@econocausal.ai")

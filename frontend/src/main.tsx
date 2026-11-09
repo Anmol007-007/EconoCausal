@@ -5,7 +5,6 @@ import App from './App.tsx';
 import { ThemeProvider } from './context/ThemeContext.tsx';
 import { ToastProvider } from './components/ui/Toast.tsx';
 
-// Register Service Worker for PWA offline capabilities
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker

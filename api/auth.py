@@ -7,13 +7,11 @@ import bcrypt
 from api.config import settings
 from api.models.user import UserInDB, UserCreate, TokenData
 
-# In-memory user store for stateful auth operations
 _USERS_DB: Dict[str, UserInDB] = {}
 
-# Account lockout tracking (prevent brute-force attacks)
 _FAILED_LOGINS: Dict[str, Dict[str, Any]] = {}
 MAX_FAILED_ATTEMPTS: int = 5
-LOCKOUT_DURATION_SECONDS: int = 900  # 15 minutes
+LOCKOUT_DURATION_SECONDS: int = 900
 
 def validate_password_complexity(password: str) -> bool:
     if len(password) < 8:

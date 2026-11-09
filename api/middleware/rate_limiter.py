@@ -17,7 +17,6 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if not settings.RATE_LIMIT_ENABLED:
             return await call_next(request)
 
-        # Allow health checks and docs without rate limit
         path = request.url.path
         if path in ("/", "/health", "/api/health", "/docs", "/openapi.json"):
             return await call_next(request)
@@ -26,7 +25,6 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         now = time.time()
         window_start = now - 60.0
 
-        # General rate limit
         client_history = [t for t in self.requests[client_ip] if t > window_start]
         self.requests[client_ip] = client_history
 
@@ -37,7 +35,6 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
                 headers={"Retry-After": "60"},
             )
 
-        # Heavy endpoints rate limit (e.g., model fitting)
         if path in ("/uplift", "/api/uplift", "/api/v2/uplift"):
             heavy_history = [t for t in self.heavy_requests[client_ip] if t > window_start]
             self.heavy_requests[client_ip] = heavy_history

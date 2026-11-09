@@ -35,7 +35,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 lg:hidden overflow-hidden">
-          {/* Backdrop */}
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -52,7 +52,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
               className="w-screen max-w-xs sm:max-w-sm bg-white dark:bg-[#1a2b30] shadow-2xl border-r border-[#bec8ce]/50 dark:border-[#2a3a3f] flex flex-col justify-between"
             >
-              {/* Header */}
+
               <div>
                 <div className="p-4 border-b border-[#bec8ce]/40 dark:border-[#2a3a3f] flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -79,7 +79,6 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                   </button>
                 </div>
 
-                {/* API Status Badge */}
                 <div className="px-4 py-2 bg-[#f1fbff] dark:bg-[#111e22] border-b border-[#bec8ce]/30 flex items-center justify-between text-xs font-mono">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${isBackendLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
@@ -90,7 +89,6 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                   <span className="text-[10px] text-slate-400">Node-03</span>
                 </div>
 
-                {/* Navigation Links by Category */}
                 <div className="p-3 overflow-y-auto max-h-[calc(100vh-220px)] space-y-4">
                   {TAB_CATEGORIES.map((cat) => (
                     <div key={cat.id} className="space-y-1">
@@ -135,7 +133,6 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 </div>
               </div>
 
-              {/* Bottom Quick Controls */}
               <div className="p-4 border-t border-[#bec8ce]/40 dark:border-[#2a3a3f] bg-white dark:bg-[#1a2b30] space-y-2">
                 <button
                   onClick={() => {

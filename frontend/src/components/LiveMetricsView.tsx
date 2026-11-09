@@ -41,7 +41,6 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
     const interval = setInterval(() => {
       if (autoRefresh) {
         fetchMetrics();
-        // simulate streaming events
         const now = new Date();
         const timeStr = now.toTimeString().split(' ')[0];
         const sampleMsgs = [
@@ -70,7 +69,7 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Banner */}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-xl bg-white dark:bg-[#1a2b30] border border-[#bec8ce]/50 dark:border-[#2a3a3f] shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
@@ -121,7 +120,6 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
         </div>
       </div>
 
-      {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {filteredMetrics.map((m) => (
           <MetricCard
@@ -136,9 +134,8 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
         ))}
       </div>
 
-      {/* Main Charts & Stream Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Real-time Throughput / Latency SVG Chart */}
+
         <div className="lg:col-span-2">
           <ChartContainer
             title="Inference Throughput & Cluster Latency (Last 60 Seconds)"
@@ -153,23 +150,21 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
                     <stop offset="100%" stopColor="#006481" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
-                {/* Horizontal gridlines */}
+
                 {[40, 90, 140, 190].map((y) => (
                   <line key={y} x1="50" y1={y} x2="680" y2={y} stroke="#bec8ce" strokeOpacity="0.25" strokeDasharray="3 3" />
                 ))}
 
-                {/* Y-axis labels */}
                 <text x="40" y="45" textAnchor="end" fill="#6f787e" fontSize="10" fontFamily="monospace">16k</text>
                 <text x="40" y="95" textAnchor="end" fill="#6f787e" fontSize="10" fontFamily="monospace">14k</text>
                 <text x="40" y="145" textAnchor="end" fill="#6f787e" fontSize="10" fontFamily="monospace">12k</text>
                 <text x="40" y="195" textAnchor="end" fill="#6f787e" fontSize="10" fontFamily="monospace">10k</text>
 
-                {/* Throughput Area */}
                 <path
                   d="M 50 140 Q 120 110, 190 95 T 330 80 T 470 70 T 610 65 T 680 60 L 680 200 L 50 200 Z"
                   fill="url(#liveThroughputGrad)"
                 />
-                {/* Throughput Line */}
+
                 <path
                   d="M 50 140 Q 120 110, 190 95 T 330 80 T 470 70 T 610 65 T 680 60"
                   fill="none"
@@ -177,7 +172,6 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
                   strokeWidth="2.5"
                 />
 
-                {/* Latency Line (Amber) */}
                 <path
                   d="M 50 180 Q 120 160, 190 150 T 330 155 T 470 145 T 610 135 T 680 130"
                   fill="none"
@@ -186,7 +180,6 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
                   strokeDasharray="4 2"
                 />
 
-                {/* Data points */}
                 {[
                   { cx: 190, cy: 95 },
                   { cx: 330, cy: 80 },
@@ -211,7 +204,6 @@ export const LiveMetricsView: React.FC<LiveMetricsViewProps> = ({ onNavigate }) 
           </ChartContainer>
         </div>
 
-        {/* Live Operational Stream Events */}
         <div>
           <div className="bg-white dark:bg-[#1a2b30] rounded-xl border border-[#bec8ce]/50 dark:border-[#2a3a3f] p-5 h-full flex flex-col">
             <div className="flex items-center justify-between mb-3">

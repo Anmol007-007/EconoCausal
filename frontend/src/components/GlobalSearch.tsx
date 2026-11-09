@@ -35,9 +35,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { toggleTheme } = useTheme();
 
-  // Aggregate all views and quick actions
   const allItems: ActionItem[] = [
-    // Tab destinations
     ...TAB_CATEGORIES.flatMap((cat) =>
       cat.tabs.map((t) => ({
         id: `tab-${t.id}`,
@@ -51,7 +49,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
         },
       }))
     ),
-    // Actions
     {
       id: 'action-pipeline',
       title: 'Run Causal ML Pipeline',
@@ -117,7 +114,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     setSelectedIndex(0);
   }, [query]);
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -140,7 +136,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 md:p-20 flex items-start justify-center">
-          {/* Backdrop */}
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -149,7 +145,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
             className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
           />
 
-          {/* Modal Container */}
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -157,7 +152,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className="relative w-full max-w-xl bg-white dark:bg-[#1a2b30] rounded-2xl shadow-2xl border border-[#bec8ce]/50 dark:border-[#2a3a3f] overflow-hidden"
           >
-            {/* Input Header */}
+
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#bec8ce]/40 dark:border-[#2a3a3f]">
               <span className="material-symbols-outlined text-slate-400 text-xl">search</span>
               <input
@@ -174,7 +169,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               </span>
             </div>
 
-            {/* Results List */}
             <div className="max-h-96 overflow-y-auto p-2 divide-y divide-[#bec8ce]/20 dark:divide-[#2a3a3f]/40">
               {filteredItems.length === 0 ? (
                 <div className="text-center py-10 font-mono text-xs text-[#6f787e]">
@@ -228,7 +222,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               )}
             </div>
 
-            {/* Footer keyboard hints */}
             <div className="px-4 py-2 border-t border-[#bec8ce]/30 dark:border-[#2a3a3f] bg-[#f1fbff] dark:bg-[#111e22] flex items-center justify-between text-[10px] font-mono text-[#6f787e]">
               <div className="flex items-center gap-3">
                 <span>↑↓ Navigate</span>

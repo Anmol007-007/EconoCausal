@@ -30,7 +30,7 @@ export const ModelComparisonView: React.FC<ModelComparisonViewProps> = ({ onNavi
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Banner */}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-xl bg-white dark:bg-[#1a2b30] border border-[#bec8ce]/50 dark:border-[#2a3a3f] shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
@@ -54,7 +54,6 @@ export const ModelComparisonView: React.FC<ModelComparisonViewProps> = ({ onNavi
         </button>
       </div>
 
-      {/* Top Winner Card Highlight */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard
           label="Top Performing Estimator"
@@ -87,7 +86,6 @@ export const ModelComparisonView: React.FC<ModelComparisonViewProps> = ({ onNavi
         />
       </div>
 
-      {/* Side-by-Side Comparison Matrix */}
       <div className="bg-white dark:bg-[#1a2b30] rounded-xl border border-[#bec8ce]/50 dark:border-[#2a3a3f] p-5">
         <h3 className="text-sm font-semibold text-[#131d20] dark:text-[#e2ecef] mb-3">
           Model Evaluation Matrix (Ground-Truth Confounded DGP)
@@ -151,7 +149,6 @@ export const ModelComparisonView: React.FC<ModelComparisonViewProps> = ({ onNavi
         </div>
       </div>
 
-      {/* Visual Chart Comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartContainer
           title="Estimation Error (PEHE RMSE) — Lower is Superior"

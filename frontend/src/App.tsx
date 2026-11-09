@@ -30,7 +30,6 @@ export default function App() {
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
 
-  // New panels for Day 12 & Day 13
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -43,7 +42,6 @@ export default function App() {
     setIsPipelineModalOpen(true);
   };
 
-  // Keyboard shortcut listener for ⌘K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -173,7 +171,6 @@ export default function App() {
 
       <Footer />
 
-      {/* Global Modals & Slide-out Panels */}
       <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}

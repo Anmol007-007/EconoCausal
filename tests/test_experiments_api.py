@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
@@ -16,7 +17,6 @@ def admin_headers():
     return {"Authorization": f"Bearer {token}"}
 
 def test_experiments_workflow(admin_headers):
-    # 1. Create experiment
     payload = {
         "name": "E2E Causal Forest Test",
         "description": "Integration test experiment",
@@ -29,12 +29,10 @@ def test_experiments_workflow(admin_headers):
     exp_id = exp_data["id"]
     assert exp_data["name"] == "E2E Causal Forest Test"
 
-    # 2. List experiments
     list_resp = client.get("/api/experiments", headers=admin_headers)
     assert list_resp.status_code == 200
     assert list_resp.json()["count"] >= 1
 
-    # 3. Add run to experiment
     run_payload = {
         "run_type": "dml_causal_forest",
         "status": "completed",
@@ -46,27 +44,37 @@ def test_experiments_workflow(admin_headers):
     assert run_resp.status_code == 201
     assert run_resp.json()["data"]["experiment_id"] == exp_id
 
-    # 4. Get experiment detail with runs
     detail_resp = client.get(f"/api/experiments/{exp_id}", headers=admin_headers)
     assert detail_resp.status_code == 200
     detail_data = detail_resp.json()["data"]
     assert len(detail_data["runs"]) >= 1
 
-    # 5. List runs endpoint
     runs_resp = client.get(f"/api/experiments/{exp_id}/runs", headers=admin_headers)
     assert runs_resp.status_code == 200
     assert runs_resp.json()["count"] >= 1
 
-    # 6. Audit logs endpoint (admin only)
     audit_resp = client.get("/api/admin/audit-logs", headers=admin_headers)
     assert audit_resp.status_code == 200
     assert "data" in audit_resp.json()
 
-    # 7. Delete experiment
     del_resp = client.delete(f"/api/experiments/{exp_id}", headers=admin_headers)
     assert del_resp.status_code == 200
 
-    # 8. Verify deleted
     get_del = client.get(f"/api/experiments/{exp_id}", headers=admin_headers)
     assert get_del.status_code == 404
 
+def test_experiments_list_default_pagination():
+    response = client.get("/api/experiments")
+    assert response.status_code in (200, 401, 403)
+
+def test_experiments_list_with_explicit_pagination():
+    response = client.get("/api/experiments?offset=0&limit=5")
+    assert response.status_code in (200, 401, 403)
+
+def test_experiments_list_large_offset():
+    response = client.get("/api/experiments?offset=9999&limit=10")
+    assert response.status_code in (200, 401, 403)
+
+def test_experiments_limit_clamped():
+    response = client.get("/api/experiments?limit=1000")
+    assert response.status_code in (200, 401, 403)

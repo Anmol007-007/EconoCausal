@@ -44,7 +44,7 @@ export const ShapExplainabilityView: React.FC<ShapExplainabilityViewProps> = ({ 
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Banner */}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-xl bg-white dark:bg-[#1a2b30] border border-[#bec8ce]/50 dark:border-[#2a3a3f] shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
@@ -70,7 +70,6 @@ export const ShapExplainabilityView: React.FC<ShapExplainabilityViewProps> = ({ 
         </div>
       </div>
 
-      {/* Top Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           label="Top Driver of Positive Lift"
@@ -100,9 +99,8 @@ export const ShapExplainabilityView: React.FC<ShapExplainabilityViewProps> = ({ 
         />
       </div>
 
-      {/* Main Attribution Visualizations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Global Feature Importance */}
+
         <ChartContainer
           title="Global Feature Importance (|SHAP| on CATE)"
           subtitle="Average magnitude of effect on conditional average treatment effect"
@@ -136,7 +134,6 @@ export const ShapExplainabilityView: React.FC<ShapExplainabilityViewProps> = ({ 
           </div>
         </ChartContainer>
 
-        {/* Individual Profile Waterfall Chart */}
         <ChartContainer
           title={`Individual CATE Waterfall — ${profileWaterfall.customer_id}`}
           subtitle={`Base Expected Lift E[τ]: +${(profileWaterfall.base_value * 100).toFixed(1)}% → Individual CATE τ(x): +${(profileWaterfall.final_cate * 100).toFixed(1)}%`}
@@ -196,7 +193,6 @@ export const ShapExplainabilityView: React.FC<ShapExplainabilityViewProps> = ({ 
         </ChartContainer>
       </div>
 
-      {/* Feature Deep Dive Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {importance.slice(0, 3).map((item) => (
           <div

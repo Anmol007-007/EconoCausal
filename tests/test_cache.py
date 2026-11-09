@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 import pytest
 import pytest_asyncio
 import fakeredis.aioredis as fakeredis
+from fastapi.testclient import TestClient
+from starlette.datastructures import QueryParams
 
+from api.main import app
+from api.decorators.cache import cache_response, _build_cache_key
 from database.cache_keys import (
     cache_key_diagnostics,
     cache_key_shap,
@@ -21,13 +26,13 @@ from database.cache_keys import (
     CACHE_TTL_DEFAULT,
 )
 
+client = TestClient(app)
 
 @pytest_asyncio.fixture
 async def fake_redis():
     r = fakeredis.FakeRedis(decode_responses=True)
     yield r
     await r.aclose()
-
 
 class TestCacheKeyBuilders:
     def test_diagnostics_key_format(self):
@@ -89,7 +94,6 @@ class TestCacheKeyBuilders:
         for k in keys:
             assert k.startswith(f"{NAMESPACE}:"), f"Key {k!r} missing namespace"
 
-
 @pytest.mark.asyncio
 async def test_fake_redis_set_and_get(fake_redis):
     await fake_redis.set("test:key", json.dumps({"value": 42}))
@@ -98,14 +102,12 @@ async def test_fake_redis_set_and_get(fake_redis):
     data = json.loads(raw)
     assert data["value"] == 42
 
-
 @pytest.mark.asyncio
 async def test_fake_redis_ttl(fake_redis):
     await fake_redis.set("test:ttl", "data", ex=600)
     ttl = await fake_redis.ttl("test:ttl")
     assert ttl > 0
     assert ttl <= 600
-
 
 @pytest.mark.asyncio
 async def test_fake_redis_delete(fake_redis):
@@ -115,7 +117,6 @@ async def test_fake_redis_delete(fake_redis):
     result = await fake_redis.get("test:del")
     assert result is None
 
-
 @pytest.mark.asyncio
 async def test_fake_redis_scan_pattern(fake_redis):
     await fake_redis.set(f"{NAMESPACE}:key1", "v1")
@@ -124,7 +125,6 @@ async def test_fake_redis_scan_pattern(fake_redis):
     cursor, keys = await fake_redis.scan(0, match=f"{NAMESPACE}:*", count=100)
     ns_keys = [k for k in keys if k.startswith(f"{NAMESPACE}:")]
     assert len(ns_keys) == 2
-
 
 @pytest.mark.asyncio
 async def test_cache_invalidation_pattern(fake_redis):
@@ -145,12 +145,10 @@ async def test_cache_invalidation_pattern(fake_redis):
     surviving = await fake_redis.get("other_ns:key")
     assert surviving == "do_not_delete"
 
-
 @pytest.mark.asyncio
 async def test_fake_redis_ping(fake_redis):
     result = await fake_redis.ping()
     assert result is True
-
 
 @pytest.mark.asyncio
 async def test_cache_get_returns_none_when_disabled():
@@ -162,7 +160,6 @@ async def test_cache_get_returns_none_when_disabled():
     assert result is None
     settings.CACHE_ENABLED = original
 
-
 @pytest.mark.asyncio
 async def test_cache_set_returns_false_when_disabled():
     from api.config import settings
@@ -172,7 +169,6 @@ async def test_cache_set_returns_false_when_disabled():
     result = await cache_set("any:key", "value", ttl=60)
     assert result is False
     settings.CACHE_ENABLED = original
-
 
 @pytest.mark.asyncio
 async def test_flush_pattern_returns_zero_when_disabled():
@@ -184,7 +180,6 @@ async def test_flush_pattern_returns_zero_when_disabled():
     assert result == 0
     settings.CACHE_ENABLED = original
 
-
 @pytest.mark.asyncio
 async def test_cache_info_returns_none_when_disabled():
     from api.config import settings
@@ -194,3 +189,50 @@ async def test_cache_info_returns_none_when_disabled():
     result = await cache_info()
     assert result is None
     settings.CACHE_ENABLED = original
+
+def test_cache_stats_requires_auth():
+    response = client.get("/api/admin/cache/stats")
+    assert response.status_code in (401, 403, 422)
+
+def test_cache_flush_requires_auth():
+    response = client.delete("/api/admin/cache/flush")
+    assert response.status_code in (401, 403, 422)
+
+def test_cache_ping_requires_auth():
+    response = client.get("/api/admin/cache/ping")
+    assert response.status_code in (401, 403, 422)
+
+def test_cache_response_decorator_importable():
+    assert callable(cache_response)
+
+def test_cache_response_returns_wrapper():
+    decorator = cache_response(ttl=60, key_prefix="test")
+    assert callable(decorator)
+
+    async def dummy_handler(request=None):
+        return {"result": "data"}
+
+    wrapped = decorator(dummy_handler)
+    assert callable(wrapped)
+    assert wrapped.__name__ == "dummy_handler"
+
+def test_cache_key_builder_hash_stable():
+    req = MagicMock()
+    req.url.path = "/api/diagnostics"
+    req.query_params = QueryParams("dataset_hash=abc")
+
+    k1 = _build_cache_key("diagnostics", req)
+    k2 = _build_cache_key("diagnostics", req)
+    assert k1 == k2
+    assert k1.startswith("econocausal:resp:diagnostics:")
+
+def test_cache_key_builder_different_path():
+    req1 = MagicMock()
+    req1.url.path = "/api/diagnostics"
+    req1.query_params = QueryParams("")
+
+    req2 = MagicMock()
+    req2.url.path = "/api/model-comparison"
+    req2.query_params = QueryParams("")
+
+    assert _build_cache_key("diag", req1) != _build_cache_key("mc", req2)

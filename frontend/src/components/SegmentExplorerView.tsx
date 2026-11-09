@@ -53,7 +53,7 @@ export const SegmentExplorerView: React.FC<SegmentExplorerViewProps> = ({ onNavi
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Banner */}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-xl bg-white dark:bg-[#1a2b30] border border-[#bec8ce]/50 dark:border-[#2a3a3f] shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
@@ -77,7 +77,6 @@ export const SegmentExplorerView: React.FC<SegmentExplorerViewProps> = ({ onNavi
         </button>
       </div>
 
-      {/* 4 Quadrants Interactive Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {segments.map((s) => {
           const isSelected = selectedQuadrant === s.quadrant;
@@ -108,7 +107,6 @@ export const SegmentExplorerView: React.FC<SegmentExplorerViewProps> = ({ onNavi
         })}
       </div>
 
-      {/* Segment Details & Recommendations */}
       {activeSegment && (
         <div className="bg-white dark:bg-[#1a2b30] rounded-xl border border-[#bec8ce]/50 dark:border-[#2a3a3f] p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-[#bec8ce]/30">
@@ -155,7 +153,6 @@ export const SegmentExplorerView: React.FC<SegmentExplorerViewProps> = ({ onNavi
         </div>
       )}
 
-      {/* Customer Record Table Filtered */}
       <div className="bg-white dark:bg-[#1a2b30] rounded-xl border border-[#bec8ce]/50 dark:border-[#2a3a3f] p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>

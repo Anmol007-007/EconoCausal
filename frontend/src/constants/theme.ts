@@ -11,7 +11,6 @@ export const COLORS = {
   slateDark: '#131d20',
   outline: '#6f787e',
   outlineVariant: '#bec8ce',
-  // Dark mode equivalents
   darkSurface: '#0d1b1e',
   darkSurfaceLow: '#1a2b30',
   darkSurfaceLowest: '#111e22',

@@ -49,7 +49,6 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
     if (setUnitMargin) setUnitMargin(val);
   };
 
-  // Dynamic simulation computations
   const efficiencyMultiplier = strategy === 'persuadables_only' ? 3.68 : strategy === 'top_decile' ? 2.45 : 0.85;
   const customersTargeted = Math.round(budget / discountDepth);
   const conversionRate = strategy === 'persuadables_only' ? 0.28 : strategy === 'top_decile' ? 0.18 : 0.04;
@@ -61,7 +60,7 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Banner */}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-xl bg-white dark:bg-[#1a2b30] border border-[#bec8ce]/50 dark:border-[#2a3a3f] shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
@@ -85,7 +84,6 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
         </button>
       </div>
 
-      {/* KPI Output Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           label="Simulated Net Incremental Profit"
@@ -118,16 +116,15 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
         />
       </div>
 
-      {/* Control Sliders and Strategy Selector */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Scenario Controls */}
+
         <div className="bg-white dark:bg-[#1a2b30] rounded-xl border border-[#bec8ce]/50 dark:border-[#2a3a3f] p-5 flex flex-col justify-between">
           <h3 className="text-sm font-semibold text-[#131d20] dark:text-[#e2ecef] mb-4">
             Campaign Parameters & Constraints
           </h3>
 
           <div className="space-y-5">
-            {/* Budget Slider */}
+
             <div>
               <div className="flex justify-between text-xs font-mono mb-1.5">
                 <span className="text-[#475053] dark:text-[#a8b8be]">Total Marketing Budget:</span>
@@ -149,7 +146,6 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
               </div>
             </div>
 
-            {/* Unit Margin Slider */}
             <div>
               <div className="flex justify-between text-xs font-mono mb-1.5">
                 <span className="text-[#475053] dark:text-[#a8b8be]">Unit Contribution Margin:</span>
@@ -171,7 +167,6 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
               </div>
             </div>
 
-            {/* Targeting Strategy Selector */}
             <div>
               <span className="text-xs font-mono text-[#475053] dark:text-[#a8b8be] block mb-2">
                 Targeting Policy:
@@ -233,7 +228,6 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
               </div>
             </div>
 
-            {/* Discount Depth */}
             <div>
               <span className="text-xs font-mono text-[#475053] dark:text-[#a8b8be] block mb-1.5">
                 Coupon Treatment Arm:
@@ -266,7 +260,6 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
           </div>
         </div>
 
-        {/* Visual Waterfall & Scenario Table */}
         <div className="lg:col-span-2 space-y-6">
           <ChartContainer
             title="Economic Profit Waterfall Comparison"
@@ -321,7 +314,6 @@ export const RoiSimulatorView: React.FC<RoiSimulatorViewProps> = ({
             </div>
           </ChartContainer>
 
-          {/* Standard Benchmark Preset Scenarios */}
           <div className="bg-white dark:bg-[#1a2b30] rounded-xl border border-[#bec8ce]/50 dark:border-[#2a3a3f] p-5">
             <h3 className="text-sm font-semibold text-[#131d20] dark:text-[#e2ecef] mb-3">
               Preset Strategic Scenarios Comparison
